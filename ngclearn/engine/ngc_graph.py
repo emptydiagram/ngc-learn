@@ -327,7 +327,7 @@ class NGCGraph:
 
     # TODO: add in early-stopping to settle routine...
     def settle(self, clamped_vars=None, readout_vars=None, init_vars=None, cold_start=True, K=-1,
-               debug=False, masked_vars=None, calc_delta=True):
+               debug=False, calc_delta=True):
         """
         Execute this NGC graph's iterative inference using the execution pathway(s)
         defined at construction/initialization.
@@ -373,8 +373,6 @@ class NGCGraph:
             readout_vars = []
         if init_vars is None:
             init_vars = []
-        if masked_vars is None:
-            masked_vars = []
         sim_batch_size = -1
 
         K_ = K
@@ -407,18 +405,6 @@ class NGCGraph:
 
         if cold_start is True:
             self.set_to_resting_state(batch_size=sim_batch_size)
-        # TODO: re-integrate back this block of code
-        # apply any desired masking variables
-        # for masked_var in masked_vars:
-        #     var_name, var_comp, mask, clamped_val = masked_var
-        #     node = self.nodes.get(var_name)
-        #     if node is not None:
-        #         curr_val = node.extract(var_comp) #("z")
-        #         curr_val = clamped_val * mask + curr_val * (1.0 - mask)
-        #         node.clamp( (var_comp, curr_val), is_persistent=False)
-        #         node.step(skip_core_calc=True)
-        #     else:
-        #         print("Node({}) does not exist for masking target".format(var_name))
 
         delta = None
         node_values = None

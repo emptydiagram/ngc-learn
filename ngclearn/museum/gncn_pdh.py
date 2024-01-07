@@ -264,7 +264,7 @@ class GNCN_PDH:
         x_hat = readouts[0][2]
         return x_hat
 
-    def calc_updates(self, avg_update=True, decay_rate=-1.0): # decay_rate=0.001
+    def calc_updates(self, avg_update=True):
         """
         Calculate adjustments to parameters under this given model and its
         current internal state values
@@ -278,8 +278,6 @@ class GNCN_PDH:
         if avg_update is True:
             for p in range(len(delta)):
                 delta[p] = delta[p] * (1.0/(Ns * 1.0))
-                if decay_rate > 0.0: # weight decay
-                    delta[p] = delta[p] - (self.ngc_model.theta[p] * decay_rate)
         return delta
 
     def update(self, x, avg_update=True): # convenience function

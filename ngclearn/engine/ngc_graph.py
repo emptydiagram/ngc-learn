@@ -489,7 +489,7 @@ class NGCGraph:
                 self.clear()
         return values, delta
 
-    def calc_updates(self, debug_map=None):
+    def calc_updates(self):
         """
             Calculates the updates to synaptic weight matrices along each
             learnable wire within this graph via a
@@ -504,18 +504,6 @@ class NGCGraph:
             cable_j = self.learnable_cables[j]
             delta_j = cable_j.calc_update()
             delta = delta + delta_j
-            if debug_map is not None:
-                # --------------------------------------------------------------
-                # NOTE: this has not been tested...might not work as expected...
-                if len(delta_j) == 2: #dW, db
-                    if cable_j.params.get("A"):
-                        debug_map[cable_j.params["A"].name] = delta_j[0]
-                    if cable_j.params.get("b"):
-                        debug_map[cable_j.params["b"].name] = delta_j[1]
-                else: #dW
-                    if cable_j.params.get("A"):
-                        debug_map[cable_j.params["A"].name] = delta_j[0]
-                # --------------------------------------------------------------
         for j in range(len(self.learnable_nodes)):
             node_j = self.learnable_nodes[j]
             delta_j = node_j.calc_update()

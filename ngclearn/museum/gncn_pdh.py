@@ -103,8 +103,8 @@ class GNCN_PDH:
         mu1 = SNode(name="mu1", dim=z_dim, act_fx="relu", zeta=0.0)
         mu0 = SNode(name="mu0", dim=x_dim, act_fx=out_fx, zeta=0.0)
 
-        e2 = ENode(name="e2", dim=z_dim, precis_kernel=precis_cfg)
-        e1 = ENode(name="e1", dim=z_dim, precis_kernel=precis_cfg)
+        e2 = ENode(name="e2", dim=z_dim) #, precis_kernel=precis_cfg)
+        e1 = ENode(name="e1", dim=z_dim) #, precis_kernel=precis_cfg)
         e0 = ENode(name="e0", dim=x_dim, ex_scale=ex_scale) #, precis_kernel=precis_cfg)
         e2.set_constraint(constraint_cfg)
         e1.set_constraint(constraint_cfg)
@@ -117,28 +117,28 @@ class GNCN_PDH:
         neg_scable_cfg = {"type": "simple", "coeff": -1.0}
 
         # beta_scale = 0.1 # alpha_scale = 0.15
-        lat_init = {"A_init" : ("lkwta",n_group,alpha_scale,beta_scale)}
-        lateral_cfg = {"type" : "dense", "init_kernels" : lat_init, "coeff": -1.0}
+        # lat_init = {"A_init" : ("lkwta",n_group,alpha_scale,beta_scale)}
+        # lateral_cfg = {"type" : "dense", "init_kernels" : lat_init, "coeff": -1.0}
 
-        top_lat_init = {"A_init" : ("lkwta",n_top_group,alpha_scale,beta_scale)}
-        lateral_cfg_top = {"type" : "dense", "init_kernels" : top_lat_init, "coeff": -1.0}
+        # top_lat_init = {"A_init" : ("lkwta",n_top_group,alpha_scale,beta_scale)}
+        # lateral_cfg_top = {"type" : "dense", "init_kernels" : top_lat_init, "coeff": -1.0}
 
         z3_mu2 = z3.wire_to(mu2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
                             short_name="W3")
-        z3_mu1 = z3.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-                            short_name="S3")
+        # z3_mu1 = z3.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
+        #                     short_name="S3")
         z2_mu1 = z2.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
                             short_name="W2")
-        z2_mu0 = z2.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-                            short_name="S2")
+        # z2_mu0 = z2.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
+        #                     short_name="S2")
         z1_mu0 = z1.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
                             short_name="W1")
 
         z3_mu2.set_constraint(constraint_cfg)
-        z3_mu1.set_constraint(constraint_cfg)
         z2_mu1.set_constraint(constraint_cfg)
-        z2_mu0.set_constraint(constraint_cfg)
         z1_mu0.set_constraint(constraint_cfg)
+        # z3_mu1.set_constraint(constraint_cfg)
+        # z2_mu0.set_constraint(constraint_cfg)
 
         mu2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
                     short_name="1")
@@ -170,18 +170,18 @@ class GNCN_PDH:
         e1_z2.set_constraint(constraint_cfg)
         e0_z1.set_constraint(constraint_cfg)
 
-        z3_to_z3 = z3.wire_to(z3, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg_top,
-                              short_name="V3")
-        z2_to_z2 = z2.wire_to(z2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg,
-                              short_name="V2")
-        z1_to_z1 = z1.wire_to(z1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg,
-                              short_name="V1")
+        # z3_to_z3 = z3.wire_to(z3, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg_top,
+        #                       short_name="V3")
+        # z2_to_z2 = z2.wire_to(z2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg,
+        #                       short_name="V2")
+        # z1_to_z1 = z1.wire_to(z1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg,
+        #                       short_name="V1")
 
 
 
         # set up update rules and make relevant edges aware of these
-        z3_mu1.set_update_rule(preact=(z3,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
-        z2_mu0.set_update_rule(preact=(z2,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
+        # z3_mu1.set_update_rule(preact=(z3,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
+        # z2_mu0.set_update_rule(preact=(z2,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
         z3_mu2.set_update_rule(preact=(z3,"phi(z)"), postact=(e2,"phi(z)"), param=["A"])
         z2_mu1.set_update_rule(preact=(z2,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
         z1_mu0.set_update_rule(preact=(z1,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
@@ -213,9 +213,9 @@ class GNCN_PDH:
         s0 = FNode(name="s0", dim=z0_dim, act_fx=out_fx)
         s3_s2 = s3.wire_to(s2, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z3_mu2,"A"))
         s2_s1 = s2.wire_to(s1, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z2_mu1,"A"))
-        s3_s1 = s3.wire_to(s1, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z3_mu1,"A"))
+        # s3_s1 = s3.wire_to(s1, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z3_mu1,"A"))
         s1_s0 = s1.wire_to(s0, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z1_mu0,"A"))
-        s2_s0 = s2.wire_to(s0, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z2_mu0,"A"))
+        # s2_s0 = s2.wire_to(s0, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z2_mu0,"A"))
         sampler = ProjectionGraph()
         sampler.set_cycle(nodes=[s3, s2, s1, s0])
         sampler_info = sampler.compile()

@@ -502,12 +502,21 @@ class NGCGraph:
         delta = []
         for j in range(len(self.learnable_cables)):
             cable_j = self.learnable_cables[j]
+            print(f"ngc_graph.calc_updates, {cable_j.name=}")
             delta_j = cable_j.calc_update()
             delta = delta + delta_j
+
+            print(delta_j[0].shape)
+            dj_avg = tf.reduce_mean(delta_j[0], axis=1)
+            print(dj_avg.shape)
+            print(dj_avg[0])
+
         for j in range(len(self.learnable_nodes)):
             node_j = self.learnable_nodes[j]
+            print(f"ngc_graph.calc_updates, {node_j.name=}")
             delta_j = node_j.calc_update()
             delta = delta + delta_j
+
         return delta
 
     def apply_constraints(self):

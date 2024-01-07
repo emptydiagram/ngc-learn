@@ -95,6 +95,8 @@ xfname = args.getArg("dev_xfname") #"../data/mnist/validX.tsv"
 X = transform.binarize( tf.cast(np.load(xfname),dtype=tf.float32) ).numpy()
 dev_set = DataLoader(design_matrices=[("z0",X)], batch_size=dev_batch_size, disable_shuffle=True)
 
+save_model = False
+
 def eval_model(agent, dataset, calc_ToD, verbose=False):
     """
         Evaluates performance of agent on this fixed-point data sample
@@ -149,22 +151,22 @@ with tf.device(gpu_tag):
 
         Lx_series = []
         ToD_series = []
-        vLx_series = []
-        vToD_series = []
+        # vLx_series = []
+        # vToD_series = []
 
         ############################################################################
         # create a  training loop
-        ToD, Lx = eval_model(agent, train_set, calc_ToD, verbose=True)
-        vToD, vLx = eval_model(agent, dev_set, calc_ToD, verbose=True)
-        print("{} | ToD = {}  Lx = {} ; vToD = {}  vLx = {}".format(-1, ToD, Lx, vToD, vLx))
-        Lx_series.append(Lx)
-        ToD_series.append(ToD)
-        vLx_series.append(vLx)
-        vToD_series.append(vToD)
+        # ToD, Lx = eval_model(agent, train_set, calc_ToD, verbose=True)
+        # vToD, vLx = eval_model(agent, dev_set, calc_ToD, verbose=True)
+        # print("{} | ToD = {}  Lx = {} ; vToD = {}  vLx = {}".format(-1, ToD, Lx, vToD, vLx))
+        # Lx_series.append(Lx)
+        # ToD_series.append(ToD)
+        # vLx_series.append(vLx)
+        # vToD_series.append(vToD)
 
         PATIENCE = 10 #5
         impatience = 0
-        vLx_best = vLx
+        vLx_best = 1e6
         sim_start_time = time.time()
         ########################################################################
         for i in range(num_iter): # for each training iteration/epoch
@@ -198,23 +200,24 @@ with tf.device(gpu_tag):
             ToD = ToD / (n_s * 1.0)
             Lx = Lx / (n_s * 1.0)
             # evaluate generalization ability on dev set
-            vToD, vLx = eval_model(agent, dev_set, calc_ToD)
+            # vToD, vLx = eval_model(agent, dev_set, calc_ToD)
+            vToD, vLx = None, None
             print("-------------------------------------------------")
             print("{} | ToD = {}  Lx = {} ; vToD = {}  vLx = {}".format(
                   i, ToD, Lx, vToD, vLx)
                   )
             Lx_series.append(Lx)
             ToD_series.append(ToD)
-            vLx_series.append(vLx)
-            vToD_series.append(vToD)
+            # vLx_series.append(vLx)
+            # vToD_series.append(vToD)
 
-            if i % save_marker == 0:
-                np.save("{}Lx{}".format(out_dir, trial), np.array(Lx_series))
-                np.save("{}ToD{}".format(out_dir, trial), np.array(ToD_series))
-                np.save("{}vLx{}".format(out_dir, trial), np.array(vLx_series))
-                np.save("{}vToD{}".format(out_dir, trial), np.array(vToD_series))
+            # if i % save_marker == 0:
+            #     np.save("{}Lx{}".format(out_dir, trial), np.array(Lx_series))
+            #     np.save("{}ToD{}".format(out_dir, trial), np.array(ToD_series))
+            #     np.save("{}vLx{}".format(out_dir, trial), np.array(vLx_series))
+            #     np.save("{}vToD{}".format(out_dir, trial), np.array(vToD_series))
 
-            if vLx < vLx_best:
+            if save_model and vLx < vLx_best:
                 print(" -> Saving model checkpoint:  {} < {}".format(vLx, vLx_best))
 
                 model_fname = "{}model{}.ngc".format(out_dir, trial)

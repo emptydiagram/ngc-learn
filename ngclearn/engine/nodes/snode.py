@@ -151,10 +151,8 @@ class SNode(Node):
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name="{}_S_z".format(self.name))
             else:
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name="{}_{}".format(self.name, name))
-        self.mask_names = ["mask"]
+        self.mask_names = []
         self.masks = {}
-        for name in self.mask_names:
-            self.masks[name] = tf.Variable(tf.ones([batch_size,dim]), name="{}_{}".format(self.name, name))
 
         self.connected_cables = []
 
@@ -176,7 +174,6 @@ class SNode(Node):
         if injection_table is None:
             injection_table = {}
 
-        bmask = self.masks.get("mask")
         ########################################################################
         if skip_core_calc == False:
             # clear any relevant compartments that are NOT stateful before accruing
@@ -274,13 +271,6 @@ class SNode(Node):
             else:
                 self.compartments["S(z)"] = (S_z)
 
-        if bmask is not None: # applies mask to all component variables of this node
-            for key in self.compartments:
-                if self.compartments.get(key) is not None:
-                    if self.do_inplace == True:
-                        self.compartments[key].assign( self.compartments.get(key) * bmask )
-                    else:
-                        self.compartments[key] = ( self.compartments.get(key) * bmask )
 
         ########################################################################
         if skip_core_calc == False:

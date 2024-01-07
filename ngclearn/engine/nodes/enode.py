@@ -92,8 +92,6 @@ class ENode(Node):
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name=name_v)
         self.mask_names = ["mask"]
         self.masks = {}
-        for name in self.mask_names:
-            self.masks[name] = tf.Variable(tf.ones([batch_size,dim]), name="{}_{}".format(self.name, name))
 
         self.connected_cables = []
 
@@ -134,7 +132,6 @@ class ENode(Node):
         self.constraint_kernel = constraint_kernel
 
     def step(self, injection_table=None, skip_core_calc=False):
-        bmask = self.masks.get("mask")
         Ws = self.compartments.get("weights")
         Ns = self.compartments.get("avg_scalar")
 
@@ -165,13 +162,6 @@ class ENode(Node):
                 pred_targ = self.compartments["pred_targ"]
                 pred_mu = self.compartments["pred_mu"]
 
-                # if self.name == "e0y":
-                #     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-                #     print("pred_targ:\n",pred_targ.numpy())
-                #     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-                if bmask is not None:
-                    pred_targ = pred_targ * bmask
-                    pred_mu = pred_mu * bmask
                 z = None
                 L_batch = None
                 L = None
@@ -227,14 +217,6 @@ class ENode(Node):
         else:
             self.compartments["phi(z)"] = (self.fx(self.compartments["z"]))
 
-        if bmask is not None: # applies mask to all component variables of this node
-            for key in self.compartments:
-                if "L" not in key:
-                    if self.compartments.get(key) is not None:
-                        if self.do_inplace == True:
-                            self.compartments[key].assign( self.compartments.get(key) * bmask )
-                        else:
-                            self.compartments[key] = ( self.compartments.get(key) * bmask )
 
         ########################################################################
         self.t += 1

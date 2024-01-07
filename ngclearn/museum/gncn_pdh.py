@@ -280,19 +280,6 @@ class GNCN_PDH:
                 delta[p] = delta[p] * (1.0/(Ns * 1.0))
         return delta
 
-    def update(self, x, avg_update=True): # convenience function
-        """
-        Updates synaptic parameters/connections given inputs x and y
-
-        Args:
-            x: a sensory sample or batch of sensory samples
-        """
-        _, delta = self.settle(x, calc_update=True)
-        self.delta = delta
-        delta = self.calc_updates(avg_update=avg_update)
-        self.opt.apply_gradients(zip(delta, self.ngc_model.theta))
-        self.ngc_model.apply_constraints()
-
     def clear(self):
         """Clears the states/values of the stateful nodes in this NGC system"""
         self.ngc_model.clear()

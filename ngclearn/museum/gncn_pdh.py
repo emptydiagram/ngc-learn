@@ -93,19 +93,21 @@ class GNCN_PDH:
 
         z3 = SNode(name="z3", dim=z_top_dim, beta=beta, leak=leak, act_fx=act_fx,
                    integrate_kernel=integrate_cfg)
-        mu2 = SNode(name="mu2", dim=z_dim, act_fx="relu", zeta=0.0)
-        e2 = ENode(name="e2", dim=z_dim, precis_kernel=precis_cfg)
-        e2.set_constraint(constraint_cfg)
         z2 = SNode(name="z2", dim=z_dim, beta=beta, leak=leak, act_fx=act_fx,
                    integrate_kernel=integrate_cfg)
-        mu1 = SNode(name="mu1", dim=z_dim, act_fx="relu", zeta=0.0)
-        e1 = ENode(name="e1", dim=z_dim, precis_kernel=precis_cfg)
-        e1.set_constraint(constraint_cfg)
         z1 = SNode(name="z1", dim=z_dim, beta=beta, leak=leak, act_fx=act_fx,
                    integrate_kernel=integrate_cfg)
-        mu0 = SNode(name="mu0", dim=x_dim, act_fx=out_fx, zeta=0.0)
-        e0 = ENode(name="e0", dim=x_dim, ex_scale=ex_scale) #, precis_kernel=precis_cfg)
         z0 = SNode(name="z0", dim=x_dim, beta=beta, integrate_kernel=integrate_cfg, leak=0.0)
+
+        mu2 = SNode(name="mu2", dim=z_dim, act_fx="relu", zeta=0.0)
+        mu1 = SNode(name="mu1", dim=z_dim, act_fx="relu", zeta=0.0)
+        mu0 = SNode(name="mu0", dim=x_dim, act_fx=out_fx, zeta=0.0)
+
+        e2 = ENode(name="e2", dim=z_dim, precis_kernel=precis_cfg)
+        e1 = ENode(name="e1", dim=z_dim, precis_kernel=precis_cfg)
+        e0 = ENode(name="e0", dim=x_dim, ex_scale=ex_scale) #, precis_kernel=precis_cfg)
+        e2.set_constraint(constraint_cfg)
+        e1.set_constraint(constraint_cfg)
 
         # create cable wiring scheme relating nodes to one another
         init_kernels = {"A_init" : ("gaussian",wght_sd)}

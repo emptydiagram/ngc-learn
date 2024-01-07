@@ -111,7 +111,6 @@ class DCable(Cable):
         super().__init__(cable_type, inp, out, name, seed)
 
         self.gamma = 1.0
-        self.use_mod_factor = False
         self.is_learnable = False
         self.shared_param_path = shared_param_path
         self.path_type = None
@@ -213,7 +212,7 @@ class DCable(Cable):
         return cable_theta
 
     def set_update_rule(self, preact=None, postact=None, update_rule=None, gamma=1.0,
-                        use_mod_factor=False, param=None, decay_kernel=None):
+                        param=None, decay_kernel=None):
         if update_rule is not None: # set user-specified update rule
             if param is not None:
                 for pname in param:
@@ -234,7 +233,6 @@ class DCable(Cable):
                 print("ERROR: *param* target cannot be None for {}".format(self.name))
                 sys.exit(1)
         self.gamma = gamma
-        self.use_mod_factor = use_mod_factor
         self.is_learnable = True
         if self.decay_kernel is None:
             self.decay_kernel = decay_kernel
@@ -302,9 +300,6 @@ class DCable(Cable):
                         dA = tf.clip_by_norm(dA, clip_radius)
                     elif clip_type == "hard_clip":
                         dA = tf.clip_by_value(dA, -clip_radius, clip_radius)
-                    if self.use_mod_factor == True: # apply modulatory factor matrix to dA
-                        A_M = transform_utils.calc_modulatory_factor(A)
-                        dA = dA * A_M
                     dA = -dA * self.gamma
 
             if b is not None:

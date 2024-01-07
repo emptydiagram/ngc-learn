@@ -90,7 +90,6 @@ class GNCN_PDH:
         integrate_cfg = {"integrate_type" : "euler", "use_dfx" : use_dfx}
         precis_cfg = ("uniform", 0.01)
         constraint_cfg = {"clip_type":"norm_clip","clip_mag":1.0,"clip_axis":0}
-        use_mod_factor = False
 
         z3 = SNode(name="z3", dim=z_top_dim, beta=beta, leak=leak, act_fx=act_fx,
                    integrate_kernel=integrate_cfg)
@@ -181,14 +180,14 @@ class GNCN_PDH:
 
         # set up update rules and make relevant edges aware of these
         z3_mu1.set_update_rule(preact=(z3,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
-        z2_mu0.set_update_rule(preact=(z2,"phi(z)"), postact=(e0,"phi(z)"), use_mod_factor=use_mod_factor, param=["A"])
+        z2_mu0.set_update_rule(preact=(z2,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
         z3_mu2.set_update_rule(preact=(z3,"phi(z)"), postact=(e2,"phi(z)"), param=["A"])
         z2_mu1.set_update_rule(preact=(z2,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
         z1_mu0.set_update_rule(preact=(z1,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
         e_gamma = 1.0
         e2_z3.set_update_rule(preact=(e2,"phi(z)"), postact=(z3,"phi(z)"), gamma=e_gamma, param=["A"])
-        e1_z2.set_update_rule(preact=(e1,"phi(z)"), postact=(z2,"phi(z)"), gamma=e_gamma, use_mod_factor=use_mod_factor, param=["A"])
-        e0_z1.set_update_rule(preact=(e0,"phi(z)"), postact=(z1,"phi(z)"), gamma=e_gamma, use_mod_factor=use_mod_factor, param=["A"])
+        e1_z2.set_update_rule(preact=(e1,"phi(z)"), postact=(z2,"phi(z)"), gamma=e_gamma, param=["A"])
+        e0_z1.set_update_rule(preact=(e0,"phi(z)"), postact=(z1,"phi(z)"), gamma=e_gamma, param=["A"])
 
         # Set up graph - execution cycle/order
         print(" > Constructing NGC graph")

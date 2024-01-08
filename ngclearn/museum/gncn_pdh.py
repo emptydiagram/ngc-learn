@@ -78,17 +78,18 @@ class GNCN_PDH:
             out_fx = self.args.getArg("out_fx")
         leak = float(self.args.getArg("leak")) #0.0
 
+        wght_sd = float(self.args.getArg("wght_sd"))
 
+
+        self.batch_size = batch_size
+        self.z_top_dim = z_top_dim
+        self.z_dim = z_dim
+        self.x_dim = x_dim
+        self.seed = seed
         self.beta = beta
         self.K = K
         self.leak = leak
-
-
-        n_group = int(self.args.getArg("n_group")) #18
-        n_top_group = int(self.args.getArg("n_top_group")) #18
-        alpha_scale = float(self.args.getArg("alpha_scale"))
-        beta_scale = float(self.args.getArg("beta_scale"))
-        wght_sd = float(self.args.getArg("wght_sd"))
+        self.wght_sd = wght_sd
 
         integrate_cfg = {"integrate_type" : "euler"}
         precis_cfg = ("uniform", 0.01)
@@ -110,33 +111,23 @@ class GNCN_PDH:
         e1 = ENode(name="e1", dim=z_dim)
         e0 = ENode(name="e0", dim=x_dim)
 
-        # e2.set_constraint(constraint_cfg)
-        # e1.set_constraint(constraint_cfg)
 
         # create cable wiring scheme relating nodes to one another
         init_kernels = {"A_init" : ("gaussian",wght_sd)}
         dcable_cfg = {"type": "dense", "init_kernels" : init_kernels, "seed" : seed}
         ecable_cfg = {"type": "dense", "init_kernels" : init_kernels, "seed" : seed}
-        pos_scable_cfg = {"type": "simple", "coeff": 1.0}
-        neg_scable_cfg = {"type": "simple", "coeff": -1.0}
 
-        # beta_scale = 0.1 # alpha_scale = 0.15
-        # lat_init = {"A_init" : ("lkwta",n_group,alpha_scale,beta_scale)}
-        # lateral_cfg = {"type" : "dense", "init_kernels" : lat_init, "coeff": -1.0}
-
-        # top_lat_init = {"A_init" : ("lkwta",n_top_group,alpha_scale,beta_scale)}
-        # lateral_cfg_top = {"type" : "dense", "init_kernels" : top_lat_init, "coeff": -1.0}
 
         z3_mu2 = z3.wire_to(mu2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
                             short_name="W3")
-        # z3_mu1 = z3.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-        #                     short_name="S3")
         z2_mu1 = z2.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
                             short_name="W2")
-        # z2_mu0 = z2.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-        #                     short_name="S2")
         z1_mu0 = z1.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
                             short_name="W1")
+        # z3_mu1 = z3.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
+        #                     short_name="S3")
+        # z2_mu0 = z2.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
+        #                     short_name="S2")
 
         z3_mu2.set_constraint(constraint_cfg)
         z2_mu1.set_constraint(constraint_cfg)
@@ -144,25 +135,6 @@ class GNCN_PDH:
         # z3_mu1.set_constraint(constraint_cfg)
         # z2_mu0.set_constraint(constraint_cfg)
 
-        # mu2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-        #             short_name="1")
-        # z2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-        #            short_name="1")
-        # mu1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-        #             short_name="1")
-        # z1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-        #            short_name="1")
-        # mu0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-        #             short_name="1")
-        # z0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-        #            short_name="1")
-
-        # e2.wire_to(z2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
-        #            short_name="-1")
-        # e1.wire_to(z1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
-        #            short_name="-1")
-        # e0.wire_to(z0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
-        #            short_name="-1")
 
         e2_z3 = e2.wire_to(z3, src_comp="phi(z)", dest_comp="dz_bu", cable_kernel=ecable_cfg,
                            short_name="E3")
@@ -174,12 +146,6 @@ class GNCN_PDH:
         e1_z2.set_constraint(constraint_cfg)
         e0_z1.set_constraint(constraint_cfg)
 
-        # z3_to_z3 = z3.wire_to(z3, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg_top,
-        #                       short_name="V3")
-        # z2_to_z2 = z2.wire_to(z2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg,
-        #                       short_name="V2")
-        # z1_to_z1 = z1.wire_to(z1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=lateral_cfg,
-        #                       short_name="V1")
 
 
 
@@ -508,12 +474,14 @@ class GNCN_PDH:
         e2_node = self.ngc_model.nodes['e2'].compartments['phi(z)']
         err1 = self.ngc_model.nodes['e1'].compartments['phi(z)']
         err0 = self.ngc_model.nodes['e0'].compartments['phi(z)']
-        deltas.append(-tf.matmul(e2_node, z3, transpose_a=True))
-        deltas.append(-tf.matmul(err1, z2, transpose_a=True))
-        deltas.append(-tf.matmul(err0, z1, transpose_a=True))
-        deltas.append(-tf.matmul(z3, e2_node, transpose_a=True))
-        deltas.append(-tf.matmul(z2, err1, transpose_a=True))
-        deltas.append(-tf.matmul(z1, err0, transpose_a=True))
+
+        avg_factor = 1.0 / self.batch_size
+        deltas.append(-avg_factor * tf.matmul(e2_node, z3, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(err1, z2, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(err0, z1, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(z3, e2_node, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(z2, err1, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(z1, err0, transpose_a=True))
 
 
         # e2_z3.set_update_rule(preact=(e2,"phi(z)"), postact=(z3,"phi(z)"), gamma=e_gamma, param=["A"])
@@ -524,8 +492,7 @@ class GNCN_PDH:
         # z1_mu0.set_update_rule(preact=(z1,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
         # update = tf.matmul(preact_term * w0, postact_term * w1, transpose_a=True)
 
-        self.delta = deltas # store delta to constructor for later retrieval
-        return x_hat
+        return x_hat, deltas
 
 
 

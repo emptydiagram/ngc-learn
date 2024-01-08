@@ -180,14 +180,14 @@ with tf.device(gpu_tag):
                 mark += 1
 
                 if use_my_learning:
-                    x_hat = agent.settle2(x)
+                    x_hat, delta = agent.settle2(x)
                 else:
                     x_hat = agent.settle(x) # conduct iterative inference
+                    # update synaptic parameters given current model internal state
+                    delta = agent.calc_updates()
 
                 ToD_t = calc_ToD(agent) # calc ToD
                 Lx = tf.reduce_sum( metric.bce(x_hat, x) ) + Lx
-                # update synaptic parameters given current model internal state
-                delta = agent.calc_updates()
                 opt.apply_gradients(zip(delta, agent.get_parameters()))
 
                 if use_my_learning:

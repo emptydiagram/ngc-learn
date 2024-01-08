@@ -256,21 +256,15 @@ class GNCN_PDH:
 
         batch_size = x.shape[0]
 
-        z3_node = self.ngc_model.nodes['z3']
-        z2_node = self.ngc_model.nodes['z2']
-        z1_node = self.ngc_model.nodes['z1']
-        z0_node = self.ngc_model.nodes['z0']
-
         # clamp
-        z0_node.compartments["z"] = x
-
+        # z0_node.compartments["z"] = x
+        z0_z = x
 
         # Initialize the values of every non-clamped node
 
-        z3_node.compartments["z"] = tf.zeros([batch_size, self.z_top_dim])
-        z2_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
-        z1_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
-
+        z3_z = tf.zeros([batch_size, self.z_top_dim])
+        z2_z = tf.zeros([batch_size, self.z_dim])
+        z1_z = tf.zeros([batch_size, self.z_dim])
 
         e2 = tf.zeros([batch_size, self.z_dim])
         e1 = tf.zeros([batch_size, self.z_dim])
@@ -278,7 +272,6 @@ class GNCN_PDH:
 
         # main iterative loop
         delta = None
-        node_values = None
 
         E3_cable = self.ngc_model.cables['e2-to-z3_dense']
         E2_cable = self.ngc_model.cables['e1-to-z2_dense']
@@ -296,57 +289,19 @@ class GNCN_PDH:
         W1 = W1_cable.params["A"]
 
         for k in range(self.K):
-            node_values = []
-
             '''
             dz = dz_td + dz_bu - z * node.leak
             z = z * node.zeta + dz * node.beta
             '''
 
-            z3_z = z3_node.compartments["z"]
-            z2_z = z2_node.compartments["z"]
-            z1_z = z1_node.compartments["z"]
-            z0_z = z0_node.compartments["z"]
-
             z3_z = z3_z + self.beta * (- self.leak * z3_z + e2 @ E3)
             z2_z = z2_z + self.beta * (- self.leak * z2_z + e1 @ E2 - e2)
             z1_z = z1_z + self.beta * (- self.leak * z1_z + e0 @ E1 - e1)
 
-            z3_node.compartments["z"] = z3_z
             z3_out = tf.nn.relu(z3_z)
-
-            z2_node.compartments["z"] = z2_z
             z2_out = tf.nn.relu(z2_z)
-
-            z1_node.compartments["z"] = z1_z
             z1_out = tf.nn.relu(z1_z)
-
-            # z0_node.compartments["phi(z)"] = z0_z
             z0_out = z0_z
-
-            node_vals = []
-            for comp_name in z3_node.compartments:
-                comp_value = z3_node.compartments.get(comp_name)
-                node_vals.append((z3_node.name, comp_name, comp_value))
-            node_values = node_values + node_vals
-
-            node_vals = []
-            for comp_name in z2_node.compartments:
-                comp_value = z2_node.compartments.get(comp_name)
-                node_vals.append((z2_node.name, comp_name, comp_value))
-            node_values = node_values + node_vals
-
-            node_vals = []
-            for comp_name in z1_node.compartments:
-                comp_value = z1_node.compartments.get(comp_name)
-                node_vals.append((z1_node.name, comp_name, comp_value))
-            node_values = node_values + node_vals
-
-            node_vals = []
-            for comp_name in z0_node.compartments:
-                comp_value = z0_node.compartments.get(comp_name)
-                node_vals.append((z0_node.name, comp_name, comp_value))
-            node_values = node_values + node_vals
 
             # predictions
 
@@ -370,7 +325,6 @@ class GNCN_PDH:
             e1 = z1_out - mu1
             e0 = z0_out - mu0
 
-
             L_batch2 = tf.reduce_sum(e2 * e2, axis=1, keepdims=True)
             self.L2 = tf.reduce_sum(L_batch2)
             L_batch1 = tf.reduce_sum(e1 * e1, axis=1, keepdims=True)
@@ -379,16 +333,9 @@ class GNCN_PDH:
             self.L0 = tf.reduce_sum(L_batch0)
 
 
-
-
-        # parse results from static graph & place correct shallow-copied items in system dictionary
-        self.ngc_model.parse_node_values(node_values)
-
-
         x_hat = mu0
 
         ##### manual update #####
-
 
         deltas = []
         # ['A_e2-to-z3_dense:0', 'A_e1-to-z2_dense:0', 'A_e0-to-z1_dense:0', 'A_z3-to-mu2_dense:0', 'A_z2-to-mu1_dense:0', 'A_z1-to-mu0_dense:0']
@@ -400,15 +347,6 @@ class GNCN_PDH:
         deltas.append(-avg_factor * tf.matmul(z3_out, e2, transpose_a=True))
         deltas.append(-avg_factor * tf.matmul(z2_out, e1, transpose_a=True))
         deltas.append(-avg_factor * tf.matmul(z1_out, e0, transpose_a=True))
-
-
-        # e2_z3.set_update_rule(preact=(e2,"phi(z)"), postact=(z3,"phi(z)"), gamma=e_gamma, param=["A"])
-        # e1_z2.set_update_rule(preact=(e1,"phi(z)"), postact=(z2,"phi(z)"), gamma=e_gamma, param=["A"])
-        # e0_z1.set_update_rule(preact=(e0,"phi(z)"), postact=(z1,"phi(z)"), gamma=e_gamma, param=["A"])
-        # z3_mu2.set_update_rule(preact=(z3,"phi(z)"), postact=(e2,"phi(z)"), param=["A"])
-        # z2_mu1.set_update_rule(preact=(z2,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
-        # z1_mu0.set_update_rule(preact=(z1,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
-        # update = tf.matmul(preact_term * w0, postact_term * w1, transpose_a=True)
 
         return x_hat, deltas
 

@@ -313,15 +313,16 @@ class GNCN_PDH:
             z1_z = z1_z + self.beta * (- self.leak * z1_z + e0 @ E1 - e1)
 
             z3_node.compartments["z"] = z3_z
-            z3_node.compartments["phi(z)"] = tf.nn.relu(z3_z)
+            z3_out = tf.nn.relu(z3_z)
 
             z2_node.compartments["z"] = z2_z
-            z2_node.compartments["phi(z)"] = tf.nn.relu(z2_z)
+            z2_out = tf.nn.relu(z2_z)
 
             z1_node.compartments["z"] = z1_z
-            z1_node.compartments["phi(z)"] = tf.nn.relu(z1_z)
+            z1_out = tf.nn.relu(z1_z)
 
-            z0_node.compartments["phi(z)"] = z0_z
+            # z0_node.compartments["phi(z)"] = z0_z
+            z0_out = z0_z
 
             node_vals = []
             for comp_name in z3_node.compartments:
@@ -349,13 +350,9 @@ class GNCN_PDH:
 
             # predictions
 
-            z3 = z3_node.compartments["phi(z)"]
-            z2 = z2_node.compartments["phi(z)"]
-            z1 = z1_node.compartments["phi(z)"]
-
-            mu2_z = z3 @ W3
-            mu1_z = z2 @ W2
-            mu0_z = z1 @ W1
+            mu2_z = z3_out @ W3
+            mu1_z = z2_out @ W2
+            mu0_z = z1_out @ W1
 
             mu2 = tf.nn.relu(mu2_z)
             mu1 = tf.nn.relu(mu1_z)
@@ -363,13 +360,17 @@ class GNCN_PDH:
 
 
             # calculate error nodes
-            z2 = z2_node.compartments['phi(z)']
-            z1 = z1_node.compartments['phi(z)']
-            z0 = z0_node.compartments['phi(z)']
 
-            e2 = z2 - mu2
-            e1 = z1 - mu1
-            e0 = z0 - mu0
+            # NOTE: paper says it should below, but this doesnt work
+            # e2 = z2_z - mu2
+            # e1 = z1_z - mu1
+            # e0 = z0_z - mu0
+
+            e2 = z2_out - mu2
+            e1 = z1_out - mu1
+            e0 = z0_out - mu0
+
+
             L_batch2 = tf.reduce_sum(e2 * e2, axis=1, keepdims=True)
             self.L2 = tf.reduce_sum(L_batch2)
             L_batch1 = tf.reduce_sum(e1 * e1, axis=1, keepdims=True)
@@ -391,17 +392,14 @@ class GNCN_PDH:
 
         deltas = []
         # ['A_e2-to-z3_dense:0', 'A_e1-to-z2_dense:0', 'A_e0-to-z1_dense:0', 'A_z3-to-mu2_dense:0', 'A_z2-to-mu1_dense:0', 'A_z1-to-mu0_dense:0']
-        z3 = self.ngc_model.nodes['z3'].compartments['phi(z)']
-        z2 = self.ngc_model.nodes['z2'].compartments['phi(z)']
-        z1 = self.ngc_model.nodes['z1'].compartments['phi(z)']
 
         avg_factor = 1.0 / self.batch_size
-        deltas.append(-avg_factor * tf.matmul(e2, z3, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(e1, z2, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(e0, z1, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(z3, e2, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(z2, e1, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(z1, e0, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(e2, z3_out, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(e1, z2_out, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(e0, z1_out, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(z3_out, e2, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(z2_out, e1, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(z1_out, e0, transpose_a=True))
 
 
         # e2_z3.set_update_rule(preact=(e2,"phi(z)"), postact=(z3,"phi(z)"), gamma=e_gamma, param=["A"])

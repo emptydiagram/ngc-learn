@@ -287,7 +287,6 @@ class GNCN_PDH:
             x_hat (predicted x)
         """
 
-
         batch_size = x.shape[0]
 
         z3_node = self.ngc_model.nodes['z3']
@@ -369,15 +368,15 @@ class GNCN_PDH:
             z1_z = z1_z + self.beta * (- self.leak * z1_z + e0 @ E1 - e1)
 
             z3_node.compartments["z"] = z3_z
-            z3_node.compartments["phi(z)"] = z3_node.fx(z3_z)
+            z3_node.compartments["phi(z)"] = tf.nn.relu(z3_z)
 
             z2_node.compartments["z"] = z2_z
-            z2_node.compartments["phi(z)"] = z2_node.fx(z2_z)
+            z2_node.compartments["phi(z)"] = tf.nn.relu(z2_z)
 
             z1_node.compartments["z"] = z1_z
-            z1_node.compartments["phi(z)"] = z1_node.fx(z1_z)
+            z1_node.compartments["phi(z)"] = tf.nn.relu(z1_z)
 
-            z0_node.compartments["phi(z)"] = z0_node.fx(z0_z)
+            z0_node.compartments["phi(z)"] = z0_z
 
             node_vals = []
             for comp_name in z3_node.compartments:
@@ -414,13 +413,13 @@ class GNCN_PDH:
             mu0_z = z1 @ W1
 
             mu2_node.compartments["z"] = mu2_z
-            mu2_node.compartments["phi(z)"] = mu2_node.fx(mu2_z)
+            mu2_node.compartments["phi(z)"] = tf.nn.relu(mu2_z)
 
             mu1_node.compartments["z"] = mu1_z
-            mu1_node.compartments["phi(z)"] = mu1_node.fx(mu1_z)
+            mu1_node.compartments["phi(z)"] = tf.nn.relu(mu1_z)
 
             mu0_node.compartments["z"] = mu0_z
-            mu0_node.compartments["phi(z)"] = mu0_node.fx(mu0_z)
+            mu0_node.compartments["phi(z)"] = tf.math.sigmoid(mu0_z)
 
             node_vals = []
             for comp_name in mu2_node.compartments:

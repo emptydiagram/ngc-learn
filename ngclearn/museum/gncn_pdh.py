@@ -194,7 +194,7 @@ class GNCN_PDH:
         ngc_model.set_cycle(nodes=[mu2, mu1, mu0])
         ngc_model.set_cycle(nodes=[e2, e1, e0])
         print(f"{[th.name for th in ngc_model.theta]}")
-        info = ngc_model.compile(batch_size=batch_size, use_graph_optim=False)
+        info = ngc_model.compile(batch_size=batch_size)
         self.info = parse_simulation_info(info)
         ngc_model.apply_constraints()
         self.ngc_model = ngc_model
@@ -348,20 +348,3 @@ class GNCN_PDH:
         #str = "{}\n".format(str)
         return str
 
-    def set_weights(self, source, tau=0.005): #0.001):
-        """
-        Deep copies weight variables of another model (of the same exact type)
-        into this model's weight variables/parameters.
-
-        Args:
-            source: the source model to extract/transfer params from
-
-            tau: if > 0, the Polyak averaging coefficient (-1 sets to hard deep copy/transfer)
-        """
-        #self.param_var = copy.deepcopy(source.param_var)
-        if tau >= 0.0:
-            for l in range(0, len(self.ngc_model.theta)):
-                self.ngc_model.theta[l].assign( self.ngc_model.theta[l] * (1 - tau) + source.ngc_model.theta[l] * tau )
-        else:
-            for l in range(0, len(self.ngc_model.theta)):
-                self.ngc_model.theta[l].assign( source.ngc_model.theta[l] )

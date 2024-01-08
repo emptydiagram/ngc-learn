@@ -115,7 +115,6 @@ class DCable(Cable):
         self.shared_param_path = shared_param_path
         self.path_type = None
         self.coeff = 1.0
-        self.clip_kernel = clip_kernel
         self.constraint_kernel = constraint_kernel
         self.decay_kernel = None
 
@@ -275,11 +274,6 @@ class DCable(Cable):
     def calc_update(self):
         delta = []
 
-        clip_type = "none"
-        if self.clip_kernel is not None:
-            self.clip_type = clip_kernel[0]
-            self.clip_radius = clip_kernel[1]
-
         A = self.params.get("A")
         b = self.params.get("b")
 
@@ -289,7 +283,6 @@ class DCable(Cable):
 
         if self.is_learnable == True:
             if A is not None:
-                print(f"dcable.calc_update, {clip_type=}, {self.gamma=}")
                 A_update_rule = self.update_terms.get("A")
                 if A_update_rule is not None:
                     # preact_node, preact_comp = preact
@@ -299,10 +292,6 @@ class DCable(Cable):
                     #
                     # dA = tf.matmul(preact_term, postact_term, transpose_a=True)
                     dA = A_update_rule.calc_update()
-                    if clip_type == "norm_clip":
-                        dA = tf.clip_by_norm(dA, clip_radius)
-                    elif clip_type == "hard_clip":
-                        dA = tf.clip_by_value(dA, -clip_radius, clip_radius)
                     dA = -dA * self.gamma
 
             if b is not None:
@@ -314,8 +303,6 @@ class DCable(Cable):
                         # postact_term = postact_node.extract(postact_comp)
                         # db = tf.reduce_sum(postact_term, axis=0, keepdims=True)
                         db = b_update_rule.calc_update(for_bias=True)
-                        if clip_type == "hard_clip":
-                            db = tf.clip_by_value(db, -clip_radius, clip_radius)
                         db = -db * self.gamma
         if dA is not None:
             delta.append(dA)

@@ -41,44 +41,9 @@ class NGCGraph:
         self.learnable_nodes = []
         self.K = K
         self.batch_size = batch_size
-        self.use_graph_optim = True
         self.injection_table = {}
         # these data members below are for the .evolve() routine
-        self.evolve_flag = False
 
-    def set_learning_order(self, param_order):
-        """
-        Forces this simulation object to arrange its .theta and delta to
-        follow a particular order.
-
-        Args:
-            param_order: a list of Cables/Nodes which will dictate the strict order
-                in which parameter updates will be calculated and how they are
-                arranged in .theta (note that delta and theta will match the same
-                dictated order)
-        """
-        self.theta = []
-        self.learnable_cables = []
-        self.unique_learnable_objects = {}
-        self.learnable_nodes = []
-        for obj in param_order:
-            obj_name = obj.name
-            if obj.is_learnable == True:
-                if isinstance(obj,Node) == True:
-                    self.learnable_nodes.append(n_j)
-                    if n_j.node_type == "error": # only error nodes have a possible learnable matrix, i.e., Sigma
-                        n_j.compute_precision()
-                        self.theta.append(n_j.Sigma)
-                    # else, this would break if a novel node is deemed learnable... (FIXME)
-                elif isinstance(obj,Cable) == True:
-                    self.learnable_cables.append(obj)
-                    for pname in obj.params:
-                        param = obj.params.get(pname)
-                        update_terms = obj.update_terms.get(pname)
-                        key_check = "{}.{}".format(obj.name,pname)
-                        if update_terms is not None and self.unique_learnable_objects.get(key_check) is None:
-                            self.theta.append(param)
-                            self.unique_learnable_objects["{}.{}".format(obj.name,pname)] = 1
 
     def set_cycle(self, nodes, param_order=None):
         """
@@ -126,7 +91,7 @@ class NGCGraph:
             px_j = theta_target[j]
             self.theta[j].assign(px_j)
 
-    def compile(self, use_graph_optim=True, batch_size=-1):
+    def compile(self, batch_size=-1):
         """
         Executes a global "compile" of this simulation object to ensure internal
         system coherence. (Only call this function after the constructor has been
@@ -149,63 +114,19 @@ class NGCGraph:
 
         sim_info = [] # list of hash tables containing properties of each element
                       # in this simulation object
-        self.use_graph_optim = use_graph_optim
         for i in range(len(self.exec_cycles)):
             cycle_i = self.exec_cycles[i]
             for j in range(len(cycle_i)):
                 node_j = cycle_i[j]
-                if self.use_graph_optim == True:
-                    # all nodes using graph optimization flag MUST be static
-                    node_j.set_status(status=("static",self.batch_size))
-                else:
-                    node_j.set_status(status=("dynamic",self.batch_size))
+                node_j.set_status(status=("dynamic",self.batch_size))
                 info_j = node_j.compile()
                 sim_info.append(info_j) # aggregate information hash tables
-                #sim_info = {**sim_info, **info_j}
         for cable_name in self.cables:
             info_j = self.cables[cable_name].compile()
             sim_info.append(info_j) # aggregate information hash tables
 
-        if self.use_graph_optim == True:
-            # run a resting state settle() to compile the static graph
-            for k in range(2): # 3
-                self.settle()
-            self.clear()
         return sim_info
 
-    def clone_state(self):
-        """
-        Clones the entire state of this graph (in terms of signals/tensors) and
-        stores each node's state dictionary in global has map
-
-        Returns:
-            a Dict (hash table) containing string names that map to physical Node objects
-        """
-        state_map = {} # node name -> node state dictionary
-        for i in range(len(self.exec_cycles)):
-            cycle_i = self.exec_cycles[i]
-            for j in range(len(cycle_i)):
-                state_j = cycle_i[j].deep_store_state()
-                state_map[cycle_i[j].name] = state_j
-        return state_map
-
-    def set_to_state(self, state_map):
-        """
-        Set every state of every node in this graph to the values contained
-        in the global Dict (hash table) "state_map"
-
-        Args:
-            state_map: a Dict (hash table) containing string names that map to physical Node objects
-        """
-        for i in range(len(self.exec_cycles)):
-            cycle_i = self.exec_cycles[i]
-            for j in range(len(cycle_i)):
-                node_j = cycle_i[j]
-                state_j = state_map.get(node_j.name)
-                for key in node_j.compartments:
-                    value_j = state_j.get(key)
-                    if value_j is not None:
-                        node_j.compartments[key] = value_j + 0
 
     def extract(self, node_name, node_var_name):
         """
@@ -312,9 +233,6 @@ class NGCGraph:
     def parse_node_values(self, node_values):
         for ii in range(len(node_values)):
             node_name, comp_name, comp_value = node_values[ii]
-            if self.use_graph_optim == True:
-                node_name = node_name.numpy().decode('ascii')
-                comp_name = comp_name.numpy().decode('ascii')
             vdict = self.values.get(node_name)
             if vdict is not None:
                 vdict[comp_name] = comp_value
@@ -412,11 +330,11 @@ class NGCGraph:
         for k in range(K_):
             if calc_delta == True:
                 if k == K_-1:
-                    node_values, delta = self._run_step(calc_delta=True, use_optim=self.use_graph_optim)
+                    node_values, delta = self._run_step(calc_delta=True)
                 else: # delta is computed at very last iteration of the simulation
-                    node_values, delta = self._run_step(calc_delta=False, use_optim=self.use_graph_optim)
+                    node_values, delta = self._run_step(calc_delta=False)
             else: # OR, never compute delta inside the simulation
-                node_values, delta = self._run_step(calc_delta=False, use_optim=self.use_graph_optim)
+                node_values, delta = self._run_step(calc_delta=False)
             # TODO: move back in masking code here (or inside static graph...)
 
         # parse results from static graph & place correct shallow-copied items in system dictionary
@@ -445,18 +363,15 @@ class NGCGraph:
                 node2_name, node2_compartment, value),...], and
                 "delta" is a list of synaptic adjustment matrices (in the same order as .theta)
         """
-        values, delta = self._run_step(calc_delta=calc_delta, use_optim=self.use_graph_optim)
+        values, delta = self._run_step(calc_delta=calc_delta)
         self.parse_node_values(values)
         return delta
 
-    def _run_step(self, calc_delta=False, use_optim=False):
+    def _run_step(self, calc_delta=False):
         """ Internal function to run step (do not call externally!)"""
         # feed in injection table externally to node-system (to avoid getting
         # compiled as part of the static graph)
-        if use_optim == True:
-            values, delta = self._step_fast(self.injection_table, calc_delta)
-        else:
-            values, delta = self._step(self.injection_table, calc_delta)
+        values, delta = self._step(self.injection_table, calc_delta)
         # update injection look-up table
         for node_name in self.injection_table:
             node_table = self.injection_table.get(node_name)
@@ -466,10 +381,6 @@ class NGCGraph:
                     node_table[comp_name] = None
         return values, delta
 
-    @tf.function
-    def _step_fast(self, injection_table, calc_delta=False): # optimized call to _step()
-        values, delta = self._step(injection_table, calc_delta)
-        return values, delta
 
     def _step(self, injection_table, calc_delta=False):
         delta = None
@@ -539,52 +450,6 @@ class NGCGraph:
             print(f"\nngc_graph.apply_constraints, {node_j.name=}")
             Prec_l = node_j.apply_constraints()
 
-    def evolve(self, clamped_vars=None, readout_vars=None, init_vars=None,
-               cold_start=True, K=-1, masked_vars=None):
-        """
-        Evolves this simulation object for one full K-step episode given
-        input information through clamped and initialized variables. Note that
-        this is a *convenience function* written to embody an NGC system's
-        full settling process, its local synaptic update calculations, as well
-        as the optimization of and application of constraints to the synaptic
-        parameters contained within .theta.
-
-        Args:
-            clamped_vars: list of 3-tuple strings containing named Nodes, their compartments, and values to (persistently)
-                clamp on. Note that this list takes the form:
-                [(node1_name, node1_compartment, value), node2_name, node2_compartment, value),...]
-
-            readout_vars: list of 2-tuple strings containing Nodes and their compartments to read from (in this function's output).
-                Note that this list takes the form:
-                [(node1_name, node1_compartment), node2_name, node2_compartment),...]
-
-            init_vars: list of 3-tuple strings containing named Nodes, their compartments, and values to initialize each
-                Node from. Note that this list takes the form:
-                [(node1_name, node1_compartment, value), node2_name, node2_compartment, value),...]
-
-            cold_start: initialize all non-clamped/initialized Nodes (i.e., their compartments contain None)
-                to zero-vector starting points
-
-            K: number simulation steps to run (Default = -1), if <= 0, then self.K will
-                be used instead
-
-            masked_vars: list of 4-tuple that instruct which nodes/compartments/masks/clamped values to apply.
-                This list is used to trigger auto-associative recalls from this NGC graph.
-                Note that this list takes the form:
-                [(node1_name, node1_compartment, mask, value), node2_name, node2_compartment, mask, value),...]
-
-        Returns:
-            readouts, delta;
-                where "readouts" is a 3-tuple list of the form [(node1_name, node1_compartment, value),
-                node2_name, node2_compartment, value),...]
-        """
-        self.evolve_flag = True
-        readouts, _ = self.settle(
-                        clamped_vars=clamped_vars, readout_vars=readout_vars,
-                        init_vars=init_vars, cold_start=cold_start, K=K,
-                        masked_vars=masked_vars, calc_delta=True
-                      )
-        return readouts
 
     def clear(self, batch_size=-1):
         """

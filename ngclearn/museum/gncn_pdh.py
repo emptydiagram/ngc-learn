@@ -72,6 +72,7 @@ class GNCN_PDH:
         seed = int(self.args.getArg("seed")) #69
         beta = float(self.args.getArg("beta"))
         K = int(self.args.getArg("K"))
+        self.K = K
         act_fx = self.args.getArg("act_fx") #"tanh"
         out_fx = "sigmoid"
         if self.args.hasArg("out_fx") == True:
@@ -278,11 +279,47 @@ class GNCN_PDH:
         Returns:
             x_hat (predicted x)
         """
-        readouts, delta = self.ngc_model.settle(
-                            clamped_vars=[("z0","z", x)],
-                            readout_vars=[("mu0","phi(z)"),("mu1","phi(z)"),("mu2","phi(z)")],
-                            calc_delta=False
-                          )
+
+        clamped_vars=[("z0","z", x)]
+        calc_delta=False
+
+        sim_batch_size = -1
+
+        # Case 1: Clamp variables that will persist during settling/inference
+        self.ngc_model.clamp(clamped_vars)
+        if len(clamped_vars) > 0:
+            for ii in range(len(clamped_vars)):
+                data = clamped_vars[ii][2]
+                # print(f"ngc_graph.settle, {clamped_vars[ii]=}")
+                # print(f"{data[0,:]=}")
+                _batch_size = data.shape[0]
+                if sim_batch_size > 0 and _batch_size != sim_batch_size:
+                    print("ERROR: clamped_vars - cannot provide mixed batch lengths: " \
+                          "item {} w/ shape[0] {} != sim_batch_size of {}".format(
+                          ii, _batch_size, sim_batch_size))
+                sim_batch_size = _batch_size
+
+
+        self.ngc_model.set_to_resting_state(batch_size=sim_batch_size)
+
+        delta = None
+        node_values = None
+        for k in range(self.K):
+            node_values, delta = self.ngc_model._run_step(calc_delta=False)
+
+        # parse results from static graph & place correct shallow-copied items in system dictionary
+        self.ngc_model.parse_node_values(node_values)
+
+        # readout_vars=[("mu0","phi(z)"),("mu1","phi(z)"),("mu2","phi(z)")]
+        # readouts = []
+        # for var_name, comp_name in readout_vars:
+        #     value = self.ngc_model.values.get(var_name).get(comp_name)
+        #     readouts.append( (var_name, comp_name, value) )
+
+        x_hat = self.ngc_model.nodes["mu0"].compartments["phi(z)"]
+
+        ##### manual update #####
+
 
         deltas = []
         # ['A_e2-to-z3_dense:0', 'A_e1-to-z2_dense:0', 'A_e0-to-z1_dense:0', 'A_z3-to-mu2_dense:0', 'A_z2-to-mu1_dense:0', 'A_z1-to-mu0_dense:0']
@@ -309,7 +346,6 @@ class GNCN_PDH:
         # update = tf.matmul(preact_term * w0, postact_term * w1, transpose_a=True)
 
         self.delta = deltas # store delta to constructor for later retrieval
-        x_hat = readouts[0][2]
         return x_hat
 
     def clip_weights(self):

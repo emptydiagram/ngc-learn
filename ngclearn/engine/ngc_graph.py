@@ -287,8 +287,6 @@ class NGCGraph:
             clamped_vars = []
         if readout_vars is None:
             readout_vars = []
-        if init_vars is None:
-            init_vars = []
         sim_batch_size = -1
 
         K_ = K

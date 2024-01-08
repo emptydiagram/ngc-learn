@@ -281,26 +281,8 @@ class GNCN_PDH:
             x_hat (predicted x)
         """
 
-        clamped_vars=[("z0","z", x)]
-        calc_delta=False
 
-        sim_batch_size = -1
-
-        # Case 1: Clamp variables that will persist during settling/inference
-        self.ngc_model.clamp(clamped_vars)
-        if len(clamped_vars) > 0:
-            for ii in range(len(clamped_vars)):
-                data = clamped_vars[ii][2]
-                _batch_size = data.shape[0]
-                if sim_batch_size > 0 and _batch_size != sim_batch_size:
-                    print("ERROR: clamped_vars - cannot provide mixed batch lengths: " \
-                          "item {} w/ shape[0] {} != sim_batch_size of {}".format(
-                          ii, _batch_size, sim_batch_size))
-                sim_batch_size = _batch_size
-
-
-        batch_size=sim_batch_size
-
+        batch_size = x.shape[0]
 
         z3_node = self.ngc_model.nodes['z3']
         z2_node = self.ngc_model.nodes['z2']
@@ -314,6 +296,11 @@ class GNCN_PDH:
         e2_node = self.ngc_model.nodes['e2']
         e1_node = self.ngc_model.nodes['e1']
         e0_node = self.ngc_model.nodes['e0']
+
+
+        # clamp
+        z0_node.compartments["z"] = x
+
 
         # Initialize the values of every non-clamped node
 
@@ -559,6 +546,31 @@ class GNCN_PDH:
             for p in range(len(delta)):
                 delta[p] = delta[p] * (1.0/(Ns * 1.0))
         return delta
+
+    def get_parameters(self):
+        E3_cable = self.ngc_model.cables['e2-to-z3_dense']
+        E2_cable = self.ngc_model.cables['e1-to-z2_dense']
+        E1_cable = self.ngc_model.cables['e0-to-z1_dense']
+
+        W3_cable = self.ngc_model.cables['z3-to-mu2_dense']
+        W2_cable = self.ngc_model.cables['z2-to-mu1_dense']
+        W1_cable = self.ngc_model.cables['z1-to-mu0_dense']
+
+        return [
+            E3_cable.params["A"],
+            E2_cable.params["A"],
+            E1_cable.params["A"],
+            W3_cable.params["A"],
+            W2_cable.params["A"],
+            W1_cable.params["A"]
+        ]
+
+    def get_total_discrepancy(self):
+        L2 = self.ngc_model.extract(node_name="e2", node_var_name="L")
+        L1 = self.ngc_model.extract(node_name="e1", node_var_name="L")
+        L0 = self.ngc_model.extract(node_name="e0", node_var_name="L")
+        return -(L2 + L1 + L0)
+
 
     def clear(self):
         """Clears the states/values of the stateful nodes in this NGC system"""

@@ -129,11 +129,7 @@ def eval_model(agent, dataset, calc_ToD, verbose=False):
 with tf.device(gpu_tag):
     def calc_ToD(agent):
         """Measures the total discrepancy (ToD) of a given NGC model"""
-        ToD = 0.0
-        L2 = agent.ngc_model.extract(node_name="e2", node_var_name="L")
-        L1 = agent.ngc_model.extract(node_name="e1", node_var_name="L")
-        L0 = agent.ngc_model.extract(node_name="e0", node_var_name="L")
-        ToD = -(L0 + L1 + L2)
+        ToD = agent.get_total_discrepancy()
         return float(ToD)
 
     for trial in range(n_trials): # for each trial
@@ -192,7 +188,7 @@ with tf.device(gpu_tag):
                 Lx = tf.reduce_sum( metric.bce(x_hat, x) ) + Lx
                 # update synaptic parameters given current model internal state
                 delta = agent.calc_updates()
-                opt.apply_gradients(zip(delta, agent.ngc_model.theta))
+                opt.apply_gradients(zip(delta, agent.get_parameters()))
 
                 if use_my_learning:
                     agent.clip_weights()

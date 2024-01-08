@@ -290,8 +290,6 @@ class GNCN_PDH:
         if len(clamped_vars) > 0:
             for ii in range(len(clamped_vars)):
                 data = clamped_vars[ii][2]
-                # print(f"ngc_graph.settle, {clamped_vars[ii]=}")
-                # print(f"{data[0,:]=}")
                 _batch_size = data.shape[0]
                 if sim_batch_size > 0 and _batch_size != sim_batch_size:
                     print("ERROR: clamped_vars - cannot provide mixed batch lengths: " \
@@ -300,8 +298,26 @@ class GNCN_PDH:
                 sim_batch_size = _batch_size
 
 
-        self.ngc_model.set_to_resting_state(batch_size=sim_batch_size)
+        batch_size=sim_batch_size
 
+        # Initialize the values of every non-clamped node
+        for i in range(len(self.ngc_model.exec_cycles)):
+            cycle_i = self.ngc_model.exec_cycles[i]
+            for j in range(len(cycle_i)):
+                node_j = cycle_i[j]
+                node_inj_table = self.ngc_model.injection_table.get(node_j.name)
+
+                print(f"{node_j.name} | {node_inj_table}")
+
+                if node_inj_table is None:
+                    node_inj_table = {}
+                if batch_size > 0:
+                    node_j.set_cold_state(node_inj_table, batch_size=batch_size)
+
+                node_j.step(node_inj_table, skip_core_calc=True)
+
+
+        # main iterative loop
         delta = None
         node_values = None
         for k in range(self.K):
@@ -310,11 +326,6 @@ class GNCN_PDH:
         # parse results from static graph & place correct shallow-copied items in system dictionary
         self.ngc_model.parse_node_values(node_values)
 
-        # readout_vars=[("mu0","phi(z)"),("mu1","phi(z)"),("mu2","phi(z)")]
-        # readouts = []
-        # for var_name, comp_name in readout_vars:
-        #     value = self.ngc_model.values.get(var_name).get(comp_name)
-        #     readouts.append( (var_name, comp_name, value) )
 
         x_hat = self.ngc_model.nodes["mu0"].compartments["phi(z)"]
 

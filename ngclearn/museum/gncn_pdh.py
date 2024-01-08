@@ -100,9 +100,9 @@ class GNCN_PDH:
         mu1 = SNode(name="mu1", dim=z_dim, act_fx="relu", zeta=0.0)
         mu0 = SNode(name="mu0", dim=x_dim, act_fx=out_fx, zeta=0.0)
 
-        e2 = ENode(name="e2", dim=z_dim) #, precis_kernel=precis_cfg)
-        e1 = ENode(name="e1", dim=z_dim) #, precis_kernel=precis_cfg)
-        e0 = ENode(name="e0", dim=x_dim) #, precis_kernel=precis_cfg)
+        e2 = ENode(name="e2", dim=z_dim)
+        e1 = ENode(name="e1", dim=z_dim)
+        e0 = ENode(name="e0", dim=x_dim)
         # e2.set_constraint(constraint_cfg)
         # e1.set_constraint(constraint_cfg)
 

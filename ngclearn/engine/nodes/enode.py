@@ -113,22 +113,15 @@ class ENode(Node):
             if self.is_clamped == False:
                 # clear any relevant compartments that are NOT stateful before accruing
                 # new deposits (this is crucial to ensure any desired stateless properties)
-                if self.do_inplace == True:
-                    self.compartments["pred_mu"].assign(self.compartments["pred_mu"] * 0)
-                    self.compartments["pred_targ"].assign(self.compartments["pred_targ"] * 0)
-                else:
-                    self.compartments["pred_mu"] = (self.compartments["pred_mu"] * 0)
-                    self.compartments["pred_targ"]= (self.compartments["pred_targ"] * 0)
+                self.compartments["pred_mu"] = (self.compartments["pred_mu"] * 0)
+                self.compartments["pred_targ"]= (self.compartments["pred_targ"] * 0)
 
                 # gather deposits from any connected nodes & insert them into the
                 # right compartments/regions -- deposits in this logic are linearly combined
                 for cable in self.connected_cables:
                     deposit = cable.propagate()
                     dest_comp = cable.dest_comp
-                    if self.do_inplace == True:
-                        self.compartments[dest_comp].assign(self.compartments[dest_comp] + deposit)
-                    else:
-                        self.compartments[dest_comp] = (deposit + self.compartments[dest_comp])
+                    self.compartments[dest_comp] = (deposit + self.compartments[dest_comp])
 
                 # core logic for the (node-internal) dendritic calculation
                 # error neurons are a fixed-point result/calculation as below:
@@ -145,29 +138,17 @@ class ENode(Node):
                     L_batch = tf.reduce_sum(e * e, axis=1, keepdims=True) #/(e.shape[0] * 2.0)
 
                 L = tf.reduce_sum(L_batch) # sum across dimensions
-                if self.do_inplace == True:
-                    self.compartments["e"].assign( z )
-                else:
-                    self.compartments["e"] = z
+                self.compartments["e"] = z
 
-                if self.do_inplace == True:
-                    self.compartments["L"].assign( [[L]] )
-                else:
-                    self.compartments["L"] = np.asarray([[L]])
+                self.compartments["L"] = np.asarray([[L]])
 
-                if self.do_inplace == True:
-                    self.compartments["z"].assign(z)
-                else:
-                    self.compartments["z"] = z
+                self.compartments["z"] = z
 
             # else, no deposits are accrued (b/c this node is hard-clamped to a signal)
             ########################################################################
 
         # apply post-activation non-linearity
-        if self.do_inplace == True:
-            self.compartments["phi(z)"].assign(self.fx(self.compartments["z"]))
-        else:
-            self.compartments["phi(z)"] = (self.fx(self.compartments["z"]))
+        self.compartments["phi(z)"] = (self.fx(self.compartments["z"]))
 
 
         ########################################################################

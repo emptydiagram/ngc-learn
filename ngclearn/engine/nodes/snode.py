@@ -151,16 +151,10 @@ class SNode(Node):
         if skip_core_calc == False:
             # clear any relevant compartments that are NOT stateful before accruing
             # new deposits (this is crucial to ensure any desired stateless properties)
-            if self.do_inplace == True:
-                if injection_table.get("dz_bu") is None:
-                    self.compartments["dz_bu"].assign(self.compartments["dz_bu"] * 0)
-                if injection_table.get("dz_td") is None:
-                    self.compartments["dz_td"].assign(self.compartments["dz_td"] * 0)
-            else:
-                if injection_table.get("dz_bu") is None:
-                    self.compartments["dz_bu"] = (self.compartments["dz_bu"] * 0)
-                if injection_table.get("dz_td") is None:
-                    self.compartments["dz_td"] = (self.compartments["dz_td"] * 0)
+            if injection_table.get("dz_bu") is None:
+                self.compartments["dz_bu"] = (self.compartments["dz_bu"] * 0)
+            if injection_table.get("dz_td") is None:
+                self.compartments["dz_td"] = (self.compartments["dz_td"] * 0)
 
             # gather deposits from any connected nodes & insert them into the
             # right compartments/regions -- deposits in this logic are linearly combined
@@ -168,10 +162,7 @@ class SNode(Node):
                 deposit = cable.propagate()
                 dest_comp = cable.dest_comp
                 if injection_table.get(dest_comp) is None:
-                    if self.do_inplace == True:
-                        self.compartments[dest_comp].assign(self.compartments[dest_comp] + deposit)
-                    else:
-                        self.compartments[dest_comp] = (deposit + self.compartments[dest_comp])
+                    self.compartments[dest_comp] = (deposit + self.compartments[dest_comp])
 
             if injection_table.get("z") is None:
                 # core logic for the (node-internal) dendritic calculation
@@ -196,10 +187,7 @@ class SNode(Node):
                 z = z * self.zeta + dz * self.beta
 
                 if injection_table.get("z") is None:
-                    if self.do_inplace == True:
-                        self.compartments["z"].assign(z)
-                    else:
-                        self.compartments["z"] = z
+                    self.compartments["z"] = z
             ########################################################################
         # else, skip this core "chunk of computation" if externally set
 
@@ -209,10 +197,7 @@ class SNode(Node):
                 phi_z = self.fx(self.compartments["z"],K=self.n_winners)
             else:
                 phi_z = self.fx(self.compartments["z"])
-            if self.do_inplace == True:
-                self.compartments["phi(z)"].assign(phi_z)
-            else:
-                self.compartments["phi(z)"] = (phi_z)
+            self.compartments["phi(z)"] = (phi_z)
 
 
         ########################################################################

@@ -326,7 +326,17 @@ class GNCN_PDH:
         delta = None
         node_values = None
         for k in range(self.K):
-            node_values, delta = self.ngc_model._run_step(calc_delta=False)
+            # node_values, delta = self.ngc_model._step(self.ngc_model.injection_table, False)
+
+            node_values = []
+            for cycle in self.ngc_model.exec_cycles:
+                for node in cycle:
+                    node_inj_table = self.ngc_model.injection_table.get(node.name)
+                    if node_inj_table is None:
+                        node_inj_table = {}
+                    # print(f"ngc_graph._step, {node.name=}, {node_inj_table=}")
+                    node_vals = node.step(node_inj_table)
+                    node_values = node_values + node_vals
 
         # parse results from static graph & place correct shallow-copied items in system dictionary
         self.ngc_model.parse_node_values(node_values)

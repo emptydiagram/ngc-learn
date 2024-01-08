@@ -103,6 +103,8 @@ class GNCN_PDH:
         e2 = ENode(name="e2", dim=z_dim)
         e1 = ENode(name="e1", dim=z_dim)
         e0 = ENode(name="e0", dim=x_dim)
+
+        self.error_nodes = [e2, e1, e0]
         # e2.set_constraint(constraint_cfg)
         # e1.set_constraint(constraint_cfg)
 
@@ -331,19 +333,86 @@ class GNCN_PDH:
             node_values = []
             for cycle in self.ngc_model.exec_cycles:
                 for node in cycle:
+                    if isinstance(node, ENode):
+                        continue
+
                     node_inj_table = self.ngc_model.injection_table.get(node.name)
                     if node_inj_table is None:
                         node_inj_table = {}
                     # print(f"ngc_graph._step, {node.name=}, {node_inj_table=}")
 
-
-                    # node_vals = node.step(node_inj_table)
                     if isinstance(node, SNode):
                         node_vals = self.snode_step(node, node_inj_table)
-                    else:
-                        node_vals = self.enode_step(node, node_inj_table)
 
                     node_values = node_values + node_vals
+
+            # calculate error nodes separately
+            z2 = self.ngc_model.nodes['z2'].compartments['phi(z)']
+            z1 = self.ngc_model.nodes['z1'].compartments['phi(z)']
+            z0 = self.ngc_model.nodes['z0'].compartments['phi(z)']
+            mu2 = self.ngc_model.nodes['mu2'].compartments['phi(z)']
+            mu1 = self.ngc_model.nodes['mu1'].compartments['phi(z)']
+            mu0 = self.ngc_model.nodes['mu0'].compartments['phi(z)']
+
+            e2_node = self.ngc_model.nodes['e2']
+            e1_node = self.ngc_model.nodes['e1']
+            e0_node = self.ngc_model.nodes['e0']
+
+            err2 = z2 - mu2
+            err1 = z1 - mu1
+            err0 = z0 - mu0
+            L_batch2 = tf.reduce_sum(err2 * err2, axis=1, keepdims=True)
+            L2 = tf.reduce_sum(L_batch2)
+            L_batch1 = tf.reduce_sum(err1 * err1, axis=1, keepdims=True)
+            L1 = tf.reduce_sum(L_batch1)
+            L_batch0 = tf.reduce_sum(err0 * err0, axis=1, keepdims=True)
+            L0 = tf.reduce_sum(L_batch0)
+
+            e2_node.compartments["L"] = np.asarray([[L2]])
+            e2_node.compartments["z"] = err2
+            e2_node.compartments["phi(z)"] = err2
+
+            e1_node.compartments["L"] = np.asarray([[L1]])
+            e1_node.compartments["z"] = err1
+            e1_node.compartments["phi(z)"] = err1
+
+            e0_node.compartments["L"] = np.asarray([[L0]])
+            e0_node.compartments["z"] = err0
+            e0_node.compartments["phi(z)"] = err0
+
+            node_vals = []
+            for comp_name in e2_node.compartments:
+                comp_value = e2_node.compartments.get(comp_name)
+                node_vals.append((e2_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            node_vals = []
+            for comp_name in e1_node.compartments:
+                comp_value = e1_node.compartments.get(comp_name)
+                node_vals.append((e1_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            node_vals = []
+            for comp_name in e0_node.compartments:
+                comp_value = e0_node.compartments.get(comp_name)
+                node_vals.append((e0_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+
+
+        # mu2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
+        #             short_name="1")
+        # z2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
+        #            short_name="1")
+        # mu1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
+        #             short_name="1")
+        # z1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
+        #            short_name="1")
+        # mu0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
+        #             short_name="1")
+        # z0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
+        #            short_name="1")
+
 
         # parse results from static graph & place correct shallow-copied items in system dictionary
         self.ngc_model.parse_node_values(node_values)
@@ -359,15 +428,15 @@ class GNCN_PDH:
         z3 = self.ngc_model.nodes['z3'].compartments['phi(z)']
         z2 = self.ngc_model.nodes['z2'].compartments['phi(z)']
         z1 = self.ngc_model.nodes['z1'].compartments['phi(z)']
-        e2 = self.ngc_model.nodes['e2'].compartments['phi(z)']
-        e1 = self.ngc_model.nodes['e1'].compartments['phi(z)']
-        e0 = self.ngc_model.nodes['e0'].compartments['phi(z)']
-        deltas.append(-tf.matmul(e2, z3, transpose_a=True))
-        deltas.append(-tf.matmul(e1, z2, transpose_a=True))
-        deltas.append(-tf.matmul(e0, z1, transpose_a=True))
-        deltas.append(-tf.matmul(z3, e2, transpose_a=True))
-        deltas.append(-tf.matmul(z2, e1, transpose_a=True))
-        deltas.append(-tf.matmul(z1, e0, transpose_a=True))
+        e2_node = self.ngc_model.nodes['e2'].compartments['phi(z)']
+        err1 = self.ngc_model.nodes['e1'].compartments['phi(z)']
+        err0 = self.ngc_model.nodes['e0'].compartments['phi(z)']
+        deltas.append(-tf.matmul(e2_node, z3, transpose_a=True))
+        deltas.append(-tf.matmul(err1, z2, transpose_a=True))
+        deltas.append(-tf.matmul(err0, z1, transpose_a=True))
+        deltas.append(-tf.matmul(z3, e2_node, transpose_a=True))
+        deltas.append(-tf.matmul(z2, err1, transpose_a=True))
+        deltas.append(-tf.matmul(z1, err0, transpose_a=True))
 
 
         # e2_z3.set_update_rule(preact=(e2,"phi(z)"), postact=(z3,"phi(z)"), gamma=e_gamma, param=["A"])
@@ -439,56 +508,6 @@ class GNCN_PDH:
         return values
 
 
-    def enode_step(self, node, injection_table):
-        ########################################################################
-        if node.is_clamped == False:
-            # clear any relevant compartments that are NOT stateful before accruing
-            # new deposits (this is crucial to ensure any desired stateless properties)
-            node.compartments["pred_mu"] = (node.compartments["pred_mu"] * 0)
-            node.compartments["pred_targ"]= (node.compartments["pred_targ"] * 0)
-
-            # gather deposits from any connected nodes & insert them into the
-            # right compartments/regions -- deposits in this logic are linearly combined
-            for cable in node.connected_cables:
-                deposit = cable.propagate()
-                dest_comp = cable.dest_comp
-                node.compartments[dest_comp] = (deposit + node.compartments[dest_comp])
-
-            # core logic for the (node-internal) dendritic calculation
-            # error neurons are a fixed-point result/calculation as below:
-            pred_targ = node.compartments["pred_targ"]
-            pred_mu = node.compartments["pred_mu"]
-
-            z = None
-            L_batch = None
-            L = None
-            if node.error_type == "mse": # squared error neurons
-                z = e = pred_targ - pred_mu
-                # print(f"[{self.name}]  ||pred_targ|| = {tf.norm(pred_targ)}, ||pred_mu|| = {tf.norm(pred_mu)}, ||e|| = {tf.norm(e)}")
-                # compute local loss that this error node represents
-                L_batch = tf.reduce_sum(e * e, axis=1, keepdims=True) #/(e.shape[0] * 2.0)
-
-            L = tf.reduce_sum(L_batch) # sum across dimensions
-
-            node.compartments["L"] = np.asarray([[L]])
-
-            node.compartments["z"] = z
-
-        # else, no deposits are accrued (b/c this node is hard-clamped to a signal)
-            ########################################################################
-
-        # apply post-activation non-linearity
-        node.compartments["phi(z)"] = (node.fx(node.compartments["z"]))
-
-
-        ########################################################################
-
-        # a node returns a list of its named component values
-        values = []
-        for comp_name in node.compartments:
-            comp_value = node.compartments.get(comp_name)
-            values.append((node.name, comp_name, comp_value))
-        return values
 
 
     def clip_weights(self):

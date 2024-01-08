@@ -104,7 +104,6 @@ class GNCN_PDH:
         e1 = ENode(name="e1", dim=z_dim)
         e0 = ENode(name="e0", dim=x_dim)
 
-        self.error_nodes = [e2, e1, e0]
         # e2.set_constraint(constraint_cfg)
         # e1.set_constraint(constraint_cfg)
 
@@ -139,18 +138,18 @@ class GNCN_PDH:
         # z3_mu1.set_constraint(constraint_cfg)
         # z2_mu0.set_constraint(constraint_cfg)
 
-        mu2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-                    short_name="1")
-        z2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-                   short_name="1")
-        mu1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-                    short_name="1")
-        z1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-                   short_name="1")
-        mu0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-                    short_name="1")
-        z0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-                   short_name="1")
+        # mu2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
+        #             short_name="1")
+        # z2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
+        #            short_name="1")
+        # mu1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
+        #             short_name="1")
+        # z1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
+        #            short_name="1")
+        # mu0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
+        #             short_name="1")
+        # z0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
+        #            short_name="1")
 
         e2.wire_to(z2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
                    short_name="-1")
@@ -399,19 +398,6 @@ class GNCN_PDH:
             node_values = node_values + node_vals
 
 
-
-        # mu2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-        #             short_name="1")
-        # z2.wire_to(e2, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-        #            short_name="1")
-        # mu1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-        #             short_name="1")
-        # z1.wire_to(e1, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-        #            short_name="1")
-        # mu0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_mu", cable_kernel=pos_scable_cfg,
-        #             short_name="1")
-        # z0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
-        #            short_name="1")
 
 
         # parse results from static graph & place correct shallow-copied items in system dictionary

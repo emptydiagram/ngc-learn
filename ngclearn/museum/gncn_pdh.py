@@ -77,18 +77,13 @@ class GNCN_PDH:
         if self.args.hasArg("out_fx") == True:
             out_fx = self.args.getArg("out_fx")
         leak = float(self.args.getArg("leak")) #0.0
-        ex_scale = 1.0
         n_group = int(self.args.getArg("n_group")) #18
         n_top_group = int(self.args.getArg("n_top_group")) #18
         alpha_scale = float(self.args.getArg("alpha_scale"))
         beta_scale = float(self.args.getArg("beta_scale"))
         wght_sd = float(self.args.getArg("wght_sd"))
 
-        use_dfx = False
-        if self.args.hasArg("use_dfx"):
-            use_dfx = (self.args.getArg("use_dfx").lower() == 'true')
-            print(" > Using Activation Function Derivative...")
-        integrate_cfg = {"integrate_type" : "euler", "use_dfx" : use_dfx}
+        integrate_cfg = {"integrate_type" : "euler"}
         precis_cfg = ("uniform", 0.01)
         constraint_cfg = {"clip_type":"norm_clip","clip_mag":1.0,"clip_axis":0}
 
@@ -106,7 +101,7 @@ class GNCN_PDH:
 
         e2 = ENode(name="e2", dim=z_dim) #, precis_kernel=precis_cfg)
         e1 = ENode(name="e1", dim=z_dim) #, precis_kernel=precis_cfg)
-        e0 = ENode(name="e0", dim=x_dim, ex_scale=ex_scale) #, precis_kernel=precis_cfg)
+        e0 = ENode(name="e0", dim=x_dim) #, precis_kernel=precis_cfg)
         # e2.set_constraint(constraint_cfg)
         # e1.set_constraint(constraint_cfg)
 

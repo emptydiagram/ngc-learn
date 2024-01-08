@@ -107,8 +107,8 @@ class GNCN_PDH:
         e2 = ENode(name="e2", dim=z_dim) #, precis_kernel=precis_cfg)
         e1 = ENode(name="e1", dim=z_dim) #, precis_kernel=precis_cfg)
         e0 = ENode(name="e0", dim=x_dim, ex_scale=ex_scale) #, precis_kernel=precis_cfg)
-        e2.set_constraint(constraint_cfg)
-        e1.set_constraint(constraint_cfg)
+        # e2.set_constraint(constraint_cfg)
+        # e1.set_constraint(constraint_cfg)
 
         # create cable wiring scheme relating nodes to one another
         init_kernels = {"A_init" : ("gaussian",wght_sd)}
@@ -195,11 +195,8 @@ class GNCN_PDH:
         # Set up graph - execution cycle/order
         print(" > Constructing NGC graph")
         ngc_model = NGCGraph(K=K, name="gncn_pdh")
-        print(f"{[th.name for th in ngc_model.theta]}")
         ngc_model.set_cycle(nodes=[z3, z2, z1, z0])
-        print(f"{[th.name for th in ngc_model.theta]}")
         ngc_model.set_cycle(nodes=[mu2, mu1, mu0])
-        print(f"{[th.name for th in ngc_model.theta]}")
         ngc_model.set_cycle(nodes=[e2, e1, e0])
         print(f"{[th.name for th in ngc_model.theta]}")
         info = ngc_model.compile(batch_size=batch_size, use_graph_optim=False)

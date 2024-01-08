@@ -419,21 +419,18 @@ class GNCN_PDH:
             err1 = z1 - mu1
             err0 = z0 - mu0
             L_batch2 = tf.reduce_sum(err2 * err2, axis=1, keepdims=True)
-            L2 = tf.reduce_sum(L_batch2)
+            self.L2 = tf.reduce_sum(L_batch2)
             L_batch1 = tf.reduce_sum(err1 * err1, axis=1, keepdims=True)
-            L1 = tf.reduce_sum(L_batch1)
+            self.L1 = tf.reduce_sum(L_batch1)
             L_batch0 = tf.reduce_sum(err0 * err0, axis=1, keepdims=True)
-            L0 = tf.reduce_sum(L_batch0)
+            self.L0 = tf.reduce_sum(L_batch0)
 
-            e2_node.compartments["L"] = np.asarray([[L2]])
             e2_node.compartments["z"] = err2
             e2_node.compartments["phi(z)"] = err2
 
-            e1_node.compartments["L"] = np.asarray([[L1]])
             e1_node.compartments["z"] = err1
             e1_node.compartments["phi(z)"] = err1
 
-            e0_node.compartments["L"] = np.asarray([[L0]])
             e0_node.compartments["z"] = err0
             e0_node.compartments["phi(z)"] = err0
 
@@ -539,9 +536,9 @@ class GNCN_PDH:
         ]
 
     def get_total_discrepancy(self):
-        L2 = self.ngc_model.extract(node_name="e2", node_var_name="L")
-        L1 = self.ngc_model.extract(node_name="e1", node_var_name="L")
-        L0 = self.ngc_model.extract(node_name="e0", node_var_name="L")
+        L2 = self.L2
+        L1 = self.L1
+        L0 = self.L0
         return -(L2 + L1 + L0)
 
 

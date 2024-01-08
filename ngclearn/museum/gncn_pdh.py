@@ -472,15 +472,15 @@ class GNCN_PDH:
         z3 = self.ngc_model.nodes['z3'].compartments['phi(z)']
         z2 = self.ngc_model.nodes['z2'].compartments['phi(z)']
         z1 = self.ngc_model.nodes['z1'].compartments['phi(z)']
-        e2_node = self.ngc_model.nodes['e2'].compartments['phi(z)']
+        err2 = self.ngc_model.nodes['e2'].compartments['phi(z)']
         err1 = self.ngc_model.nodes['e1'].compartments['phi(z)']
         err0 = self.ngc_model.nodes['e0'].compartments['phi(z)']
 
         avg_factor = 1.0 / self.batch_size
-        deltas.append(-avg_factor * tf.matmul(e2_node, z3, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(err2, z3, transpose_a=True))
         deltas.append(-avg_factor * tf.matmul(err1, z2, transpose_a=True))
         deltas.append(-avg_factor * tf.matmul(err0, z1, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(z3, e2_node, transpose_a=True))
+        deltas.append(-avg_factor * tf.matmul(z3, err2, transpose_a=True))
         deltas.append(-avg_factor * tf.matmul(z2, err1, transpose_a=True))
         deltas.append(-avg_factor * tf.matmul(z1, err0, transpose_a=True))
 

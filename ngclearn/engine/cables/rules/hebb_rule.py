@@ -51,6 +51,7 @@ class HebbRule(UpdateRule):
             preact_node, preact_comp = preact
             preact_term = preact_node.extract(preact_comp)
             # calculate the final update matrix
+            print(f"hebb_rule.calc_update: {w0=}, {w1=}")
             update = tf.matmul(preact_term * w0, postact_term * w1, transpose_a=True)
         else: # vector update
             update = tf.reduce_sum(postact_term * w1, axis=0, keepdims=True)

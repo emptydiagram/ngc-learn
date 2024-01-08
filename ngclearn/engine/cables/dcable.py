@@ -285,8 +285,11 @@ class DCable(Cable):
 
         dA = None
         db = None
+
+
         if self.is_learnable == True:
             if A is not None:
+                print(f"dcable.calc_update, {clip_type=}, {self.gamma=}")
                 A_update_rule = self.update_terms.get("A")
                 if A_update_rule is not None:
                     # preact_node, preact_comp = preact
@@ -334,6 +337,7 @@ class DCable(Cable):
                 clip_type = self.constraint_kernel.get("clip_type")
                 clip_mag = float(self.constraint_kernel.get("clip_mag"))
                 clip_axis = int(self.constraint_kernel.get("clip_axis"))
+                print(f"\n>> dcable.apply_constraints, {clip_type=}, {clip_mag=}, {clip_axis=}")
                 if clip_mag > 0.0: # apply constraints
                     A = self.params.get("A")
                     if A is not None:
@@ -346,6 +350,7 @@ class DCable(Cable):
         if self.decay_kernel is not None:
             decay_type = self.decay_kernel[0]
             decay_coeff = self.decay_kernel[1]
+            print(f"\n>> dcable.apply_constraints, {decay_type=}, {decay_coeff=}")
             if decay_coeff > 0.0:
                 A = self.params.get("A")
                 if decay_type == "l2":

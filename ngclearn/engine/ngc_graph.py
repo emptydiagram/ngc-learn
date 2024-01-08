@@ -44,7 +44,6 @@ class NGCGraph:
         self.use_graph_optim = True
         self.injection_table = {}
         # these data members below are for the .evolve() routine
-        self.opt = None
         self.evolve_flag = False
 
     def set_learning_order(self, param_order):
@@ -384,6 +383,8 @@ class NGCGraph:
         if len(clamped_vars) > 0:
             for ii in range(len(clamped_vars)):
                 data = clamped_vars[ii][2]
+                # print(f"ngc_graph.settle, {clamped_vars[ii]=}")
+                # print(f"{data[0,:]=}")
                 _batch_size = data.shape[0]
                 if sim_batch_size > 0 and _batch_size != sim_batch_size:
                     print("ERROR: clamped_vars - cannot provide mixed batch lengths: " \
@@ -473,20 +474,18 @@ class NGCGraph:
     def _step(self, injection_table, calc_delta=False):
         delta = None
         values = []
+        # print(f"ngc_graph._step, {[node.name for cycle in self.exec_cycles for node in cycle]}")
+        # breakpoint()
         for cycle in self.exec_cycles:
             for node in cycle:
                 node_inj_table = injection_table.get(node.name)
                 if node_inj_table is None:
                     node_inj_table = {}
+                # print(f"ngc_graph._step, {node.name=}, {node_inj_table=}")
                 node_values = node.step(node_inj_table)
                 values = values + node_values
         if calc_delta == True:
             delta = self.calc_updates()
-        if self.opt is not None and self.evolve_flag == True:
-            if delta is not None:
-                self.opt.apply_gradients(zip(delta, self.theta))
-                self.apply_constraints()
-                self.clear()
         return values, delta
 
     def calc_updates(self):
@@ -499,17 +498,20 @@ class NGCGraph:
                 debug_map: (Default = None), a Dict to place named signals
                     inside (for debugging)
         """
+        # breakpoint()
         delta = []
         for j in range(len(self.learnable_cables)):
             cable_j = self.learnable_cables[j]
-            print(f"ngc_graph.calc_updates, {cable_j.name=}")
+            # print(f"\nngc_graph.calc_updates, {cable_j.name=}")
             delta_j = cable_j.calc_update()
             delta = delta + delta_j
 
-            print(delta_j[0].shape)
             dj_avg = tf.reduce_mean(delta_j[0], axis=1)
-            print(dj_avg.shape)
-            print(dj_avg[0])
+
+            # idxs = [0, 1, 2]
+            # for idx in idxs:
+            #     print(dj_avg[idx])
+            # print(tf.reduce_mean(dj_avg))
 
         for j in range(len(self.learnable_nodes)):
             node_j = self.learnable_nodes[j]
@@ -529,21 +531,13 @@ class NGCGraph:
         # apply constraints to any applicable (learnable) cables
         for j in range(len(self.learnable_cables)):
             cable_j = self.learnable_cables[j]
+            print(f"\nngc_graph.apply_constraints, {cable_j.name=}")
             cable_j.apply_constraints()
         # apply constraints to any applicable (learnable) nodes
         for j in range(len(self.learnable_nodes)):
             node_j = self.learnable_nodes[j]
+            print(f"\nngc_graph.apply_constraints, {node_j.name=}")
             Prec_l = node_j.apply_constraints()
-
-    def set_optimization(self, opt_algo):
-        """
-        Sets the internal optimization algorithm used by this simulation object.
-
-        Args:
-            opt_algo: optimization algorithm to be used, e.g., SGD, Adam, etc.
-                (Note: must be a valid TF2 optimizer.)
-        """
-        self.opt = opt_algo
 
     def evolve(self, clamped_vars=None, readout_vars=None, init_vars=None,
                cold_start=True, K=-1, masked_vars=None):

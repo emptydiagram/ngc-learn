@@ -167,6 +167,7 @@ class ENode(Node):
                 L = None
                 if self.error_type == "mse": # squared error neurons
                     z = e = pred_targ - pred_mu
+                    # print(f"[{self.name}]  ||pred_targ|| = {tf.norm(pred_targ)}, ||pred_mu|| = {tf.norm(pred_mu)}, ||e|| = {tf.norm(e)}")
                     # compute local loss that this error node represents
                     L_batch = tf.reduce_sum(e * e, axis=1, keepdims=True) #/(e.shape[0] * 2.0)
                 elif self.error_type == "mae": # absolute error neurons

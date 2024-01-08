@@ -7,6 +7,7 @@ import numpy as np
 
 from ngclearn.engine.nodes.snode import SNode
 from ngclearn.engine.nodes.enode import ENode
+from ngclearn.engine.cables.dcable import DCable
 from ngclearn.engine.ngc_graph import NGCGraph
 
 from ngclearn.engine.nodes.fnode import FNode
@@ -182,6 +183,7 @@ class GNCN_PDH:
         # set up update rules and make relevant edges aware of these
         # z3_mu1.set_update_rule(preact=(z3,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
         # z2_mu0.set_update_rule(preact=(z2,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
+
         z3_mu2.set_update_rule(preact=(z3,"phi(z)"), postact=(e2,"phi(z)"), param=["A"])
         z2_mu1.set_update_rule(preact=(z2,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
         z1_mu0.set_update_rule(preact=(z1,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
@@ -193,10 +195,14 @@ class GNCN_PDH:
         # Set up graph - execution cycle/order
         print(" > Constructing NGC graph")
         ngc_model = NGCGraph(K=K, name="gncn_pdh")
+        print(f"{[th.name for th in ngc_model.theta]}")
         ngc_model.set_cycle(nodes=[z3, z2, z1, z0])
+        print(f"{[th.name for th in ngc_model.theta]}")
         ngc_model.set_cycle(nodes=[mu2, mu1, mu0])
+        print(f"{[th.name for th in ngc_model.theta]}")
         ngc_model.set_cycle(nodes=[e2, e1, e0])
-        info = ngc_model.compile(batch_size=batch_size, use_graph_optim=True)
+        print(f"{[th.name for th in ngc_model.theta]}")
+        info = ngc_model.compile(batch_size=batch_size, use_graph_optim=False)
         self.info = parse_simulation_info(info)
         ngc_model.apply_constraints()
         self.ngc_model = ngc_model
@@ -261,9 +267,64 @@ class GNCN_PDH:
                             readout_vars=[("mu0","phi(z)"),("mu1","phi(z)"),("mu2","phi(z)")],
                             calc_delta=calc_update
                           )
+
         self.delta = delta # store delta to constructor for later retrieval
         x_hat = readouts[0][2]
         return x_hat
+
+    def settle2(self, x, calc_update=True):
+        """
+        Run an iterative settling process to find latent states given clamped
+        input and output variables
+
+        Args:
+            x: sensory input to reconstruct/predict
+
+            calc_update: if True, computes synaptic updates @ end of settling
+                process (Default = True)
+
+        Returns:
+            x_hat (predicted x)
+        """
+        readouts, delta = self.ngc_model.settle(
+                            clamped_vars=[("z0","z", x)],
+                            readout_vars=[("mu0","phi(z)"),("mu1","phi(z)"),("mu2","phi(z)")],
+                            calc_delta=False
+                          )
+
+        deltas = []
+        # ['A_e2-to-z3_dense:0', 'A_e1-to-z2_dense:0', 'A_e0-to-z1_dense:0', 'A_z3-to-mu2_dense:0', 'A_z2-to-mu1_dense:0', 'A_z1-to-mu0_dense:0']
+        z3 = self.ngc_model.nodes['z3'].compartments['phi(z)']
+        z2 = self.ngc_model.nodes['z2'].compartments['phi(z)']
+        z1 = self.ngc_model.nodes['z1'].compartments['phi(z)']
+        e2 = self.ngc_model.nodes['e2'].compartments['phi(z)']
+        e1 = self.ngc_model.nodes['e1'].compartments['phi(z)']
+        e0 = self.ngc_model.nodes['e0'].compartments['phi(z)']
+        deltas.append(-tf.matmul(e2, z3, transpose_a=True))
+        deltas.append(-tf.matmul(e1, z2, transpose_a=True))
+        deltas.append(-tf.matmul(e0, z1, transpose_a=True))
+        deltas.append(-tf.matmul(z3, e2, transpose_a=True))
+        deltas.append(-tf.matmul(z2, e1, transpose_a=True))
+        deltas.append(-tf.matmul(z1, e0, transpose_a=True))
+
+
+        # e2_z3.set_update_rule(preact=(e2,"phi(z)"), postact=(z3,"phi(z)"), gamma=e_gamma, param=["A"])
+        # e1_z2.set_update_rule(preact=(e1,"phi(z)"), postact=(z2,"phi(z)"), gamma=e_gamma, param=["A"])
+        # e0_z1.set_update_rule(preact=(e0,"phi(z)"), postact=(z1,"phi(z)"), gamma=e_gamma, param=["A"])
+        # z3_mu2.set_update_rule(preact=(z3,"phi(z)"), postact=(e2,"phi(z)"), param=["A"])
+        # z2_mu1.set_update_rule(preact=(z2,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
+        # z1_mu0.set_update_rule(preact=(z1,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
+        # update = tf.matmul(preact_term * w0, postact_term * w1, transpose_a=True)
+
+        self.delta = deltas # store delta to constructor for later retrieval
+        x_hat = readouts[0][2]
+        return x_hat
+
+    def clip_weights(self):
+        for (name, cable) in self.ngc_model.cables.items():
+            if isinstance(cable, DCable):
+                A = cable.params.get("A")
+                A.assign(tf.clip_by_norm(A, 1.0, axes=[0]))
 
     def calc_updates(self, avg_update=True):
         """

@@ -97,6 +97,8 @@ dev_set = DataLoader(design_matrices=[("z0",X)], batch_size=dev_batch_size, disa
 
 save_model = False
 
+use_my_learning = True
+
 def eval_model(agent, dataset, calc_ToD, verbose=False):
     """
         Evaluates performance of agent on this fixed-point data sample
@@ -181,13 +183,22 @@ with tf.device(gpu_tag):
                 x_name, x = batch[0]
                 mark += 1
 
-                x_hat = agent.settle(x) # conduct iterative inference
+                if use_my_learning:
+                    x_hat = agent.settle2(x)
+                else:
+                    x_hat = agent.settle(x) # conduct iterative inference
+
                 ToD_t = calc_ToD(agent) # calc ToD
                 Lx = tf.reduce_sum( metric.bce(x_hat, x) ) + Lx
                 # update synaptic parameters given current model internal state
                 delta = agent.calc_updates()
                 opt.apply_gradients(zip(delta, agent.ngc_model.theta))
-                agent.ngc_model.apply_constraints()
+
+                if use_my_learning:
+                    agent.clip_weights()
+                else:
+                    agent.ngc_model.apply_constraints()
+
                 agent.clear()
 
                 ToD = ToD_t + ToD

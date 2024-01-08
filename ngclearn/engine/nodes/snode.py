@@ -133,8 +133,6 @@ class SNode(Node):
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name="{}_S_z".format(self.name))
             else:
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name="{}_{}".format(self.name, name))
-        self.mask_names = []
-        self.masks = {}
 
         self.connected_cables = []
 

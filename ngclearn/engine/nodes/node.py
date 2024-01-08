@@ -30,8 +30,6 @@ class Node:
         self.compartments = None
         self.constant_names = None
         self.constants = None
-        self.mask_names = None
-        self.masks = None
         self.connected_cables = []
         self.do_inplace = True # forces variables to be overriden/set in-place in memory
 
@@ -80,16 +78,6 @@ class Node:
                         tf.Variable(tf.zeros([self.batch_size,comp_dim]), name=comp_var_name)
                 else:
                     self.compartments[cname] = tf.zeros([self.batch_size,comp_dim])
-        for mname in self.mask_names:
-            curr_mask = self.masks.get(mname)
-            if curr_mask is not None:
-                mask_var_name = curr_mask.name
-                mask_var_name = mask_var_name[0:curr_mask.name.index(":"):1]
-                mask_dim = curr_mask.shape[1]
-                if self.do_inplace == True:
-                    self.masks[mname] = tf.Variable(tf.ones([self.batch_size,mask_dim]), name=mask_var_name)
-                else:
-                    self.masks[mname] = tf.ones([self.batch_size,mask_dim])
         parents = []
         for parent_cable in self.connected_cables:
             parents.append((parent_cable.src_node.name, parent_cable.src_comp))
@@ -99,8 +87,6 @@ class Node:
         info["n_connected_cables"] = len(self.connected_cables)
         info["n_compartments"] = len(self.compartments)
         info["compartments"] = self.compartment_names
-        info["n_masks"] = len(self.masks)
-        info["masks"] = self.mask_names
         if self.constants is not None:
             info["n_constants"] = len(self.constants)
             info["constants"] = self.constant_names
@@ -274,16 +260,6 @@ class Node:
                         self.compartments[comp_name] = tf.zeros([batch_size, comp_value.shape[1]])
                     else:
                         self.compartments[comp_name] = (comp_value * 0)
-        for mask_name in self.mask_names:
-            mask_value = self.masks.get(mask_name)
-            if mask_value is not None:
-                if self.do_inplace == True:
-                    self.masks[mask_name].assign(mask_value * 0 + 1)
-                else:
-                    if batch_size > 0:
-                        self.masks[mask_name] = tf.ones([batch_size, mask_value.shape[1]])
-                    else:
-                        self.masks[mask_name] = (mask_value * 0 + 1)
 
     def set_cold_state(self, injection_table=None, batch_size=-1):
         """
@@ -314,20 +290,6 @@ class Node:
                         self.compartments[comp_name].assign(zero_state + 0)
                     else:
                         self.compartments[comp_name] = (zero_state + 0)
-        for comp_name in self.mask_names:
-            #ptr = self.comp_map[comp_name]
-            #if self.injected.get(comp_name) is None:
-            #if self.injected[ptr] == 0:
-            comp_value = self.masks.get(comp_name)
-            if comp_value is not None:
-                if comp_value.shape[0] > 1:
-                    zero_state = tf.ones([batch_size_, comp_value.shape[1]])
-                else:
-                    zero_state = tf.ones([1, comp_value.shape[1]])
-                if self.do_inplace == True:
-                    self.masks[comp_name].assign(zero_state + 0)
-                else:
-                    self.masks[comp_name] = (zero_state + 0)
 
     def extract_params(self):
         return []

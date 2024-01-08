@@ -35,7 +35,6 @@ class NGCGraph:
         self.nodes = {}
         self.cables = {}
         self.values = {}
-        self.values_tmp = []
         self.learnable_cables = []
         self.unique_learnable_objects = {}
         self.learnable_nodes = []
@@ -310,17 +309,6 @@ class NGCGraph:
                           ii, _batch_size, sim_batch_size))
                 sim_batch_size = _batch_size
 
-        # Case 2: Clamp variables that will NOT persist during settling/inference
-        self.inject(init_vars)
-        if len(init_vars) > 0:
-            for ii in range(len(clamped_vars)):
-                data = init_vars[ii][2]
-                _batch_size = data.shape[0]
-                if sim_batch_size > 0 and _batch_size != sim_batch_size:
-                    print("ERROR: inject_vars - cannot provide mixed batch lengths: " \
-                          "item {} w/ shape[0] {} != sim_batch_size of {}".format(
-                          ii, _batch_size, sim_batch_size))
-                sim_batch_size = _batch_size
 
         if cold_start is True:
             self.set_to_resting_state(batch_size=sim_batch_size)
@@ -348,24 +336,6 @@ class NGCGraph:
             readouts.append( (var_name, comp_name, value) )
         return readouts, delta
 
-    def step(self, calc_delta=False):
-        """
-        Online function for simulating exactly one discrete time step of this
-        simulated NGC graph given its exact current state.
-
-        Args:
-            calc_delta: compute the list of synaptic updates for each learnable
-                parameter within .theta? (Default = True)
-
-        Returns:
-            readouts, delta;
-                where "readouts" is a 3-tuple list of the form [(node1_name, node1_compartment, value),
-                node2_name, node2_compartment, value),...], and
-                "delta" is a list of synaptic adjustment matrices (in the same order as .theta)
-        """
-        values, delta = self._run_step(calc_delta=calc_delta)
-        self.parse_node_values(values)
-        return delta
 
     def _run_step(self, calc_delta=False):
         """ Internal function to run step (do not call externally!)"""
@@ -456,7 +426,6 @@ class NGCGraph:
         Clears/deletes any persistent signals currently embedded w/in this graph's Nodes
         """
         self.values = {}
-        self.values_tmp = []
         self.injection_table = {}
         for node_name in self.nodes:
             node = self.nodes.get(node_name)

@@ -89,8 +89,6 @@ class ENode(Node):
             else:
                 name_v = "{}_{}".format(self.name, name)
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name=name_v)
-        self.mask_names = []
-        self.masks = {}
 
         self.connected_cables = []
 

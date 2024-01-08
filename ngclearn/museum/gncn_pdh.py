@@ -301,31 +301,6 @@ class GNCN_PDH:
 
         batch_size=sim_batch_size
 
-        # Initialize the values of every non-clamped node
-        for i in range(len(self.ngc_model.exec_cycles)):
-            cycle_i = self.ngc_model.exec_cycles[i]
-            for j in range(len(cycle_i)):
-                node_j = cycle_i[j]
-                node_inj_table = self.ngc_model.injection_table.get(node_j.name)
-
-                if node_inj_table is None:
-                    node_inj_table = {}
-
-                for comp_name in node_j.compartment_names:
-                    if node_inj_table.get(comp_name) is None:
-                        comp_value = node_j.compartments.get(comp_name)
-                        # print(f"settle2.init, {node_j.name} : {comp_name}, {comp_value.shape}")
-                        if comp_value.shape[0] > 1:
-                            zero_state = tf.zeros([batch_size, comp_value.shape[1]])
-                        else:
-                            zero_state = tf.zeros([1, comp_value.shape[1]])
-                        node_j.compartments[comp_name] = (zero_state + 0)
-
-
-
-        # main iterative loop
-        delta = None
-        node_values = None
 
         z3_node = self.ngc_model.nodes['z3']
         z2_node = self.ngc_model.nodes['z2']
@@ -339,6 +314,26 @@ class GNCN_PDH:
         e2_node = self.ngc_model.nodes['e2']
         e1_node = self.ngc_model.nodes['e1']
         e0_node = self.ngc_model.nodes['e0']
+
+        # Initialize the values of every non-clamped node
+
+        z3_node.compartments["z"] = tf.zeros([batch_size, z3_node.dim])
+        z2_node.compartments["z"] = tf.zeros([batch_size, z2_node.dim])
+        z1_node.compartments["z"] = tf.zeros([batch_size, z1_node.dim])
+
+        mu2_node.compartments["z"] = tf.zeros([batch_size, mu2_node.dim])
+        mu1_node.compartments["z"] = tf.zeros([batch_size, mu1_node.dim])
+        mu0_node.compartments["z"] = tf.zeros([batch_size, mu0_node.dim])
+
+        e2_node.compartments["phi(z)"] = tf.zeros([batch_size, e2_node.dim])
+        e1_node.compartments["phi(z)"] = tf.zeros([batch_size, e1_node.dim])
+        e0_node.compartments["phi(z)"] = tf.zeros([batch_size, e0_node.dim])
+
+
+        # main iterative loop
+        delta = None
+        node_values = None
+
 
         E3_cable = self.ngc_model.cables['e2-to-z3_dense']
         E2_cable = self.ngc_model.cables['e1-to-z2_dense']

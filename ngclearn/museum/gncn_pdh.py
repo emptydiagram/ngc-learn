@@ -151,12 +151,12 @@ class GNCN_PDH:
         # z0.wire_to(e0, src_comp="phi(z)", dest_comp="pred_targ", cable_kernel=pos_scable_cfg,
         #            short_name="1")
 
-        e2.wire_to(z2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
-                   short_name="-1")
-        e1.wire_to(z1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
-                   short_name="-1")
-        e0.wire_to(z0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
-                   short_name="-1")
+        # e2.wire_to(z2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
+        #            short_name="-1")
+        # e1.wire_to(z1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
+        #            short_name="-1")
+        # e0.wire_to(z0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=neg_scable_cfg,
+        #            short_name="-1")
 
         e2_z3 = e2.wire_to(z3, src_comp="phi(z)", dest_comp="dz_bu", cable_kernel=ecable_cfg,
                            short_name="E3")
@@ -326,36 +326,140 @@ class GNCN_PDH:
         # main iterative loop
         delta = None
         node_values = None
+
+        z3_node = self.ngc_model.nodes['z3']
+        z2_node = self.ngc_model.nodes['z2']
+        z1_node = self.ngc_model.nodes['z1']
+        z0_node = self.ngc_model.nodes['z0']
+
+        mu2_node = self.ngc_model.nodes['mu2']
+        mu1_node = self.ngc_model.nodes['mu1']
+        mu0_node = self.ngc_model.nodes['mu0']
+
+        e2_node = self.ngc_model.nodes['e2']
+        e1_node = self.ngc_model.nodes['e1']
+        e0_node = self.ngc_model.nodes['e0']
+
+        E3_cable = self.ngc_model.cables['e2-to-z3_dense']
+        E2_cable = self.ngc_model.cables['e1-to-z2_dense']
+        E1_cable = self.ngc_model.cables['e0-to-z1_dense']
+
+        W3_cable = self.ngc_model.cables['z3-to-mu2_dense']
+        W2_cable = self.ngc_model.cables['z2-to-mu1_dense']
+        W1_cable = self.ngc_model.cables['z1-to-mu0_dense']
+
+        E3 = E3_cable.params["A"]
+        E2 = E2_cable.params["A"]
+        E1 = E1_cable.params["A"]
+        W3 = W3_cable.params["A"]
+        W2 = W2_cable.params["A"]
+        W1 = W1_cable.params["A"]
+
         for k in range(self.K):
-            # node_values, delta = self.ngc_model._step(self.ngc_model.injection_table, False)
-
             node_values = []
-            for cycle in self.ngc_model.exec_cycles:
-                for node in cycle:
-                    if isinstance(node, ENode):
-                        continue
 
-                    node_inj_table = self.ngc_model.injection_table.get(node.name)
-                    if node_inj_table is None:
-                        node_inj_table = {}
-                    # print(f"ngc_graph._step, {node.name=}, {node_inj_table=}")
+            '''
+            dz = dz_td + dz_bu - z * node.leak
+            z = z * node.zeta + dz * node.beta
+            '''
 
-                    if isinstance(node, SNode):
-                        node_vals = self.snode_step(node, node_inj_table)
+            z3_z = z3_node.compartments["z"]
+            z2_z = z2_node.compartments["z"]
+            z1_z = z1_node.compartments["z"]
+            z0_z = z0_node.compartments["z"]
 
-                    node_values = node_values + node_vals
+            mu2_z = mu2_node.compartments["z"]
+            mu1_z = mu1_node.compartments["z"]
+            mu0_z = mu0_node.compartments["z"]
 
-            # calculate error nodes separately
-            z2 = self.ngc_model.nodes['z2'].compartments['phi(z)']
-            z1 = self.ngc_model.nodes['z1'].compartments['phi(z)']
-            z0 = self.ngc_model.nodes['z0'].compartments['phi(z)']
-            mu2 = self.ngc_model.nodes['mu2'].compartments['phi(z)']
-            mu1 = self.ngc_model.nodes['mu1'].compartments['phi(z)']
-            mu0 = self.ngc_model.nodes['mu0'].compartments['phi(z)']
+            e2 = e2_node.compartments["phi(z)"]
+            e1 = e1_node.compartments["phi(z)"]
+            e0 = e0_node.compartments["phi(z)"]
 
-            e2_node = self.ngc_model.nodes['e2']
-            e1_node = self.ngc_model.nodes['e1']
-            e0_node = self.ngc_model.nodes['e0']
+            z3_z = z3_z + z3_node.beta * (- z3_node.leak * z3_z + e2 @ E3)
+            z2_z = z2_z + z2_node.beta * (- z2_node.leak * z2_z + e1 @ E2 - e2)
+            z1_z = z1_z + z1_node.beta * (- z1_node.leak * z1_z + e0 @ E1 - e1)
+
+            z3_node.compartments["z"] = z3_z
+            z3_node.compartments["phi(z)"] = z3_node.fx(z3_z)
+
+            z2_node.compartments["z"] = z2_z
+            z2_node.compartments["phi(z)"] = z2_node.fx(z2_z)
+
+            z1_node.compartments["z"] = z1_z
+            z1_node.compartments["phi(z)"] = z1_node.fx(z1_z)
+
+            z0_node.compartments["phi(z)"] = z0_node.fx(z0_z)
+
+            node_vals = []
+            for comp_name in z3_node.compartments:
+                comp_value = z3_node.compartments.get(comp_name)
+                node_vals.append((z3_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            node_vals = []
+            for comp_name in z2_node.compartments:
+                comp_value = z2_node.compartments.get(comp_name)
+                node_vals.append((z2_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            node_vals = []
+            for comp_name in z1_node.compartments:
+                comp_value = z1_node.compartments.get(comp_name)
+                node_vals.append((z1_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            node_vals = []
+            for comp_name in z0_node.compartments:
+                comp_value = z0_node.compartments.get(comp_name)
+                node_vals.append((z0_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            # predictions
+
+            z3 = z3_node.compartments["phi(z)"]
+            z2 = z2_node.compartments["phi(z)"]
+            z1 = z1_node.compartments["phi(z)"]
+
+            mu2_z = mu2_node.beta * (z3 @ W3)
+            mu1_z = mu1_node.beta * (z2 @ W2)
+            mu0_z = mu0_node.beta * (z1 @ W1)
+
+            mu2_node.compartments["z"] = mu2_z
+            mu2_node.compartments["phi(z)"] = mu2_node.fx(mu2_z)
+
+            mu1_node.compartments["z"] = mu1_z
+            mu1_node.compartments["phi(z)"] = mu1_node.fx(mu1_z)
+
+            mu0_node.compartments["z"] = mu0_z
+            mu0_node.compartments["phi(z)"] = mu0_node.fx(mu0_z)
+
+            node_vals = []
+            for comp_name in mu2_node.compartments:
+                comp_value = mu2_node.compartments.get(comp_name)
+                node_vals.append((mu2_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            node_vals = []
+            for comp_name in mu1_node.compartments:
+                comp_value = mu1_node.compartments.get(comp_name)
+                node_vals.append((mu1_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+            node_vals = []
+            for comp_name in mu0_node.compartments:
+                comp_value = mu0_node.compartments.get(comp_name)
+                node_vals.append((mu0_node.name, comp_name, comp_value))
+            node_values = node_values + node_vals
+
+
+            # calculate error nodes
+            z2 = z2_node.compartments['phi(z)']
+            z1 = z1_node.compartments['phi(z)']
+            z0 = z0_node.compartments['phi(z)']
+            mu2 = mu2_node.compartments['phi(z)']
+            mu1 = mu1_node.compartments['phi(z)']
+            mu0 = mu0_node.compartments['phi(z)']
 
             err2 = z2 - mu2
             err1 = z1 - mu1
@@ -435,63 +539,6 @@ class GNCN_PDH:
 
         self.delta = deltas # store delta to constructor for later retrieval
         return x_hat
-
-    def snode_step(self, node, injection_table):
-        # clear any relevant compartments that are NOT stateful before accruing
-        # new deposits (this is crucial to ensure any desired stateless properties)
-        if injection_table.get("dz_bu") is None:
-            node.compartments["dz_bu"] = (node.compartments["dz_bu"] * 0)
-        if injection_table.get("dz_td") is None:
-            node.compartments["dz_td"] = (node.compartments["dz_td"] * 0)
-
-        # gather deposits from any connected nodes & insert them into the
-        # right compartments/regions -- deposits in this logic are linearly combined
-        for cable in node.connected_cables:
-            deposit = cable.propagate()
-            dest_comp = cable.dest_comp
-            if injection_table.get(dest_comp) is None:
-                node.compartments[dest_comp] = (deposit + node.compartments[dest_comp])
-
-        if injection_table.get("z") is None:
-            # core logic for the (node-internal) dendritic calculation
-            dz_bu = node.compartments["dz_bu"]
-            dz_td = node.compartments["dz_td"]
-            z = node.compartments["z"]
-            dz = dz_td + dz_bu
-
-            '''
-            Euler integration step (under NGC inference dynamics)
-
-            Constants/meta-parameters:
-            beta - strength of update to node state z
-            leak - controls strength of leak variable/decay
-            zeta - if set to 0 turns off recurrent carry-over of node's current state value
-            prior(z) - distributional prior placed over z (such as kurtotic prior, e.g. Laplace/Cauchy)
-
-            Dynamics Equation:
-            z <- z * zeta + ( dz * beta - z * leak )
-            '''
-            dz = dz - z * node.leak
-            z = z * node.zeta + dz * node.beta
-
-            if injection_table.get("z") is None:
-                node.compartments["z"] = z
-        ########################################################################
-        # else, skip this core "chunk of computation" if externally set
-
-        if injection_table.get("phi(z)") is None: # apply post-activation non-linearity
-            phi_z = None
-            phi_z = node.fx(node.compartments["z"])
-            node.compartments["phi(z)"] = (phi_z)
-
-
-        # a node returns a list of its named component values
-        values = []
-        injected = []
-        for comp_name in node.compartments:
-            comp_value = node.compartments.get(comp_name)
-            values.append((node.name, comp_name, comp_value))
-        return values
 
 
 

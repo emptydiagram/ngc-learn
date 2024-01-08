@@ -72,12 +72,18 @@ class GNCN_PDH:
         seed = int(self.args.getArg("seed")) #69
         beta = float(self.args.getArg("beta"))
         K = int(self.args.getArg("K"))
-        self.K = K
         act_fx = self.args.getArg("act_fx") #"tanh"
         out_fx = "sigmoid"
         if self.args.hasArg("out_fx") == True:
             out_fx = self.args.getArg("out_fx")
         leak = float(self.args.getArg("leak")) #0.0
+
+
+        self.beta = beta
+        self.K = K
+        self.leak = leak
+
+
         n_group = int(self.args.getArg("n_group")) #18
         n_top_group = int(self.args.getArg("n_top_group")) #18
         alpha_scale = float(self.args.getArg("alpha_scale"))
@@ -358,9 +364,9 @@ class GNCN_PDH:
             e1 = e1_node.compartments["phi(z)"]
             e0 = e0_node.compartments["phi(z)"]
 
-            z3_z = z3_z + z3_node.beta * (- z3_node.leak * z3_z + e2 @ E3)
-            z2_z = z2_z + z2_node.beta * (- z2_node.leak * z2_z + e1 @ E2 - e2)
-            z1_z = z1_z + z1_node.beta * (- z1_node.leak * z1_z + e0 @ E1 - e1)
+            z3_z = z3_z + self.beta * (- self.leak * z3_z + e2 @ E3)
+            z2_z = z2_z + self.beta * (- self.leak * z2_z + e1 @ E2 - e2)
+            z1_z = z1_z + self.beta * (- self.leak * z1_z + e0 @ E1 - e1)
 
             z3_node.compartments["z"] = z3_z
             z3_node.compartments["phi(z)"] = z3_node.fx(z3_z)
@@ -403,9 +409,9 @@ class GNCN_PDH:
             z2 = z2_node.compartments["phi(z)"]
             z1 = z1_node.compartments["phi(z)"]
 
-            mu2_z = mu2_node.beta * (z3 @ W3)
-            mu1_z = mu1_node.beta * (z2 @ W2)
-            mu0_z = mu0_node.beta * (z1 @ W1)
+            mu2_z = z3 @ W3
+            mu1_z = z2 @ W2
+            mu0_z = z1 @ W1
 
             mu2_node.compartments["z"] = mu2_z
             mu2_node.compartments["phi(z)"] = mu2_node.fx(mu2_z)

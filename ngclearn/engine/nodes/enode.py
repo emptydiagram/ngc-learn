@@ -76,7 +76,7 @@ class ENode(Node):
         self.dfx = None
         self.is_clamped = False
 
-        self.compartment_names = ["pred_mu", "pred_targ", "z", "phi(z)", "L", "e"]
+        self.compartment_names = ["pred_mu", "pred_targ", "z", "phi(z)", "L"]
         self.compartments = {}
         for name in self.compartment_names:
             name_v = None
@@ -138,7 +138,6 @@ class ENode(Node):
                     L_batch = tf.reduce_sum(e * e, axis=1, keepdims=True) #/(e.shape[0] * 2.0)
 
                 L = tf.reduce_sum(L_batch) # sum across dimensions
-                self.compartments["e"] = z
 
                 self.compartments["L"] = np.asarray([[L]])
 

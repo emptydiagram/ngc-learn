@@ -335,7 +335,14 @@ class GNCN_PDH:
                     if node_inj_table is None:
                         node_inj_table = {}
                     # print(f"ngc_graph._step, {node.name=}, {node_inj_table=}")
-                    node_vals = node.step(node_inj_table)
+
+
+                    # node_vals = node.step(node_inj_table)
+                    if isinstance(node, SNode):
+                        node_vals = self.snode_step(node, node_inj_table)
+                    else:
+                        node_vals = self.enode_step(node, node_inj_table)
+
                     node_values = node_values + node_vals
 
         # parse results from static graph & place correct shallow-copied items in system dictionary
@@ -373,6 +380,116 @@ class GNCN_PDH:
 
         self.delta = deltas # store delta to constructor for later retrieval
         return x_hat
+
+    def snode_step(self, node, injection_table):
+        # clear any relevant compartments that are NOT stateful before accruing
+        # new deposits (this is crucial to ensure any desired stateless properties)
+        if injection_table.get("dz_bu") is None:
+            node.compartments["dz_bu"] = (node.compartments["dz_bu"] * 0)
+        if injection_table.get("dz_td") is None:
+            node.compartments["dz_td"] = (node.compartments["dz_td"] * 0)
+
+        # gather deposits from any connected nodes & insert them into the
+        # right compartments/regions -- deposits in this logic are linearly combined
+        for cable in node.connected_cables:
+            deposit = cable.propagate()
+            dest_comp = cable.dest_comp
+            if injection_table.get(dest_comp) is None:
+                node.compartments[dest_comp] = (deposit + node.compartments[dest_comp])
+
+        if injection_table.get("z") is None:
+            # core logic for the (node-internal) dendritic calculation
+            dz_bu = node.compartments["dz_bu"]
+            dz_td = node.compartments["dz_td"]
+            z = node.compartments["z"]
+            dz = dz_td + dz_bu
+
+            '''
+            Euler integration step (under NGC inference dynamics)
+
+            Constants/meta-parameters:
+            beta - strength of update to node state z
+            leak - controls strength of leak variable/decay
+            zeta - if set to 0 turns off recurrent carry-over of node's current state value
+            prior(z) - distributional prior placed over z (such as kurtotic prior, e.g. Laplace/Cauchy)
+
+            Dynamics Equation:
+            z <- z * zeta + ( dz * beta - z * leak )
+            '''
+            dz = dz - z * node.leak
+            z = z * node.zeta + dz * node.beta
+
+            if injection_table.get("z") is None:
+                node.compartments["z"] = z
+        ########################################################################
+        # else, skip this core "chunk of computation" if externally set
+
+        if injection_table.get("phi(z)") is None: # apply post-activation non-linearity
+            phi_z = None
+            phi_z = node.fx(node.compartments["z"])
+            node.compartments["phi(z)"] = (phi_z)
+
+
+        # a node returns a list of its named component values
+        values = []
+        injected = []
+        for comp_name in node.compartments:
+            comp_value = node.compartments.get(comp_name)
+            values.append((node.name, comp_name, comp_value))
+        return values
+
+
+    def enode_step(self, node, injection_table):
+        ########################################################################
+        if node.is_clamped == False:
+            # clear any relevant compartments that are NOT stateful before accruing
+            # new deposits (this is crucial to ensure any desired stateless properties)
+            node.compartments["pred_mu"] = (node.compartments["pred_mu"] * 0)
+            node.compartments["pred_targ"]= (node.compartments["pred_targ"] * 0)
+
+            # gather deposits from any connected nodes & insert them into the
+            # right compartments/regions -- deposits in this logic are linearly combined
+            for cable in node.connected_cables:
+                deposit = cable.propagate()
+                dest_comp = cable.dest_comp
+                node.compartments[dest_comp] = (deposit + node.compartments[dest_comp])
+
+            # core logic for the (node-internal) dendritic calculation
+            # error neurons are a fixed-point result/calculation as below:
+            pred_targ = node.compartments["pred_targ"]
+            pred_mu = node.compartments["pred_mu"]
+
+            z = None
+            L_batch = None
+            L = None
+            if node.error_type == "mse": # squared error neurons
+                z = e = pred_targ - pred_mu
+                # print(f"[{self.name}]  ||pred_targ|| = {tf.norm(pred_targ)}, ||pred_mu|| = {tf.norm(pred_mu)}, ||e|| = {tf.norm(e)}")
+                # compute local loss that this error node represents
+                L_batch = tf.reduce_sum(e * e, axis=1, keepdims=True) #/(e.shape[0] * 2.0)
+
+            L = tf.reduce_sum(L_batch) # sum across dimensions
+
+            node.compartments["L"] = np.asarray([[L]])
+
+            node.compartments["z"] = z
+
+        # else, no deposits are accrued (b/c this node is hard-clamped to a signal)
+            ########################################################################
+
+        # apply post-activation non-linearity
+        node.compartments["phi(z)"] = (node.fx(node.compartments["z"]))
+
+
+        ########################################################################
+
+        # a node returns a list of its named component values
+        values = []
+        for comp_name in node.compartments:
+            comp_value = node.compartments.get(comp_name)
+            values.append((node.name, comp_name, comp_value))
+        return values
+
 
     def clip_weights(self):
         for (name, cable) in self.ngc_model.cables.items():

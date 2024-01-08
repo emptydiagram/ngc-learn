@@ -109,9 +109,6 @@ class SNode(Node):
         fx, dfx = transform_utils.decide_fun(act_fx)
         self.fx = fx
         self.dfx = dfx
-        self.n_winners = -1
-        if "bkwta" in act_fx:
-            self.n_winners = int(act_fx[act_fx.index("(")+1:act_fx.rindex(")")])
         # build stochastic sampling function
         self.samp_fx = samp_fx
         sfx, sdfx = transform_utils.decide_fun(samp_fx)
@@ -193,10 +190,7 @@ class SNode(Node):
 
         if injection_table.get("phi(z)") is None: # apply post-activation non-linearity
             phi_z = None
-            if self.n_winners > 0:
-                phi_z = self.fx(self.compartments["z"],K=self.n_winners)
-            else:
-                phi_z = self.fx(self.compartments["z"])
+            phi_z = self.fx(self.compartments["z"])
             self.compartments["phi(z)"] = (phi_z)
 
 

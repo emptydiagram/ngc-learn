@@ -261,9 +261,6 @@ class GNCN_PDH:
         z1_node = self.ngc_model.nodes['z1']
         z0_node = self.ngc_model.nodes['z0']
 
-        mu2_node = self.ngc_model.nodes['mu2']
-        mu1_node = self.ngc_model.nodes['mu1']
-        mu0_node = self.ngc_model.nodes['mu0']
 
         e2_node = self.ngc_model.nodes['e2']
         e1_node = self.ngc_model.nodes['e1']
@@ -279,10 +276,6 @@ class GNCN_PDH:
         z3_node.compartments["z"] = tf.zeros([batch_size, self.z_top_dim])
         z2_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
         z1_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
-
-        mu2_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
-        mu1_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
-        mu0_node.compartments["z"] = tf.zeros([batch_size, self.x_dim])
 
         e2_node.compartments["phi(z)"] = tf.zeros([batch_size, self.z_dim])
         e1_node.compartments["phi(z)"] = tf.zeros([batch_size, self.z_dim])
@@ -321,10 +314,6 @@ class GNCN_PDH:
             z2_z = z2_node.compartments["z"]
             z1_z = z1_node.compartments["z"]
             z0_z = z0_node.compartments["z"]
-
-            mu2_z = mu2_node.compartments["z"]
-            mu1_z = mu1_node.compartments["z"]
-            mu0_z = mu0_node.compartments["z"]
 
             e2 = e2_node.compartments["phi(z)"]
             e1 = e1_node.compartments["phi(z)"]
@@ -379,41 +368,15 @@ class GNCN_PDH:
             mu1_z = z2 @ W2
             mu0_z = z1 @ W1
 
-            mu2_node.compartments["z"] = mu2_z
-            mu2_node.compartments["phi(z)"] = tf.nn.relu(mu2_z)
-
-            mu1_node.compartments["z"] = mu1_z
-            mu1_node.compartments["phi(z)"] = tf.nn.relu(mu1_z)
-
-            mu0_node.compartments["z"] = mu0_z
-            mu0_node.compartments["phi(z)"] = tf.math.sigmoid(mu0_z)
-
-            node_vals = []
-            for comp_name in mu2_node.compartments:
-                comp_value = mu2_node.compartments.get(comp_name)
-                node_vals.append((mu2_node.name, comp_name, comp_value))
-            node_values = node_values + node_vals
-
-            node_vals = []
-            for comp_name in mu1_node.compartments:
-                comp_value = mu1_node.compartments.get(comp_name)
-                node_vals.append((mu1_node.name, comp_name, comp_value))
-            node_values = node_values + node_vals
-
-            node_vals = []
-            for comp_name in mu0_node.compartments:
-                comp_value = mu0_node.compartments.get(comp_name)
-                node_vals.append((mu0_node.name, comp_name, comp_value))
-            node_values = node_values + node_vals
+            mu2 = tf.nn.relu(mu2_z)
+            mu1 = tf.nn.relu(mu1_z)
+            mu0 = tf.math.sigmoid(mu0_z)
 
 
             # calculate error nodes
             z2 = z2_node.compartments['phi(z)']
             z1 = z1_node.compartments['phi(z)']
             z0 = z0_node.compartments['phi(z)']
-            mu2 = mu2_node.compartments['phi(z)']
-            mu1 = mu1_node.compartments['phi(z)']
-            mu0 = mu0_node.compartments['phi(z)']
 
             err2 = z2 - mu2
             err1 = z1 - mu1

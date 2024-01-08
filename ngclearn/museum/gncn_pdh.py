@@ -170,8 +170,9 @@ class GNCN_PDH:
         print(f"{[th.name for th in ngc_model.theta]}")
         info = ngc_model.compile(batch_size=batch_size)
         self.info = parse_simulation_info(info)
-        ngc_model.apply_constraints()
+        # ngc_model.apply_constraints()
         self.ngc_model = ngc_model
+        self.clip_weights()
 
         # build this NGC model's sampling graph
         z3_dim = ngc_model.getNode("z3").dim
@@ -275,17 +276,17 @@ class GNCN_PDH:
 
         # Initialize the values of every non-clamped node
 
-        z3_node.compartments["z"] = tf.zeros([batch_size, z3_node.dim])
-        z2_node.compartments["z"] = tf.zeros([batch_size, z2_node.dim])
-        z1_node.compartments["z"] = tf.zeros([batch_size, z1_node.dim])
+        z3_node.compartments["z"] = tf.zeros([batch_size, self.z_top_dim])
+        z2_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
+        z1_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
 
-        mu2_node.compartments["z"] = tf.zeros([batch_size, mu2_node.dim])
-        mu1_node.compartments["z"] = tf.zeros([batch_size, mu1_node.dim])
-        mu0_node.compartments["z"] = tf.zeros([batch_size, mu0_node.dim])
+        mu2_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
+        mu1_node.compartments["z"] = tf.zeros([batch_size, self.z_dim])
+        mu0_node.compartments["z"] = tf.zeros([batch_size, self.x_dim])
 
-        e2_node.compartments["phi(z)"] = tf.zeros([batch_size, e2_node.dim])
-        e1_node.compartments["phi(z)"] = tf.zeros([batch_size, e1_node.dim])
-        e0_node.compartments["phi(z)"] = tf.zeros([batch_size, e0_node.dim])
+        e2_node.compartments["phi(z)"] = tf.zeros([batch_size, self.z_dim])
+        e1_node.compartments["phi(z)"] = tf.zeros([batch_size, self.z_dim])
+        e0_node.compartments["phi(z)"] = tf.zeros([batch_size, self.x_dim])
 
 
         # main iterative loop

@@ -261,11 +261,9 @@ class GNCN_PDH:
         z1_node = self.ngc_model.nodes['z1']
         z0_node = self.ngc_model.nodes['z0']
 
-
         e2_node = self.ngc_model.nodes['e2']
         e1_node = self.ngc_model.nodes['e1']
         e0_node = self.ngc_model.nodes['e0']
-
 
         # clamp
         z0_node.compartments["z"] = x
@@ -285,7 +283,6 @@ class GNCN_PDH:
         # main iterative loop
         delta = None
         node_values = None
-
 
         E3_cable = self.ngc_model.cables['e2-to-z3_dense']
         E2_cable = self.ngc_model.cables['e1-to-z2_dense']
@@ -388,13 +385,8 @@ class GNCN_PDH:
             L_batch0 = tf.reduce_sum(err0 * err0, axis=1, keepdims=True)
             self.L0 = tf.reduce_sum(L_batch0)
 
-            e2_node.compartments["z"] = err2
             e2_node.compartments["phi(z)"] = err2
-
-            e1_node.compartments["z"] = err1
             e1_node.compartments["phi(z)"] = err1
-
-            e0_node.compartments["z"] = err0
             e0_node.compartments["phi(z)"] = err0
 
             node_vals = []

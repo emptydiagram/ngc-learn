@@ -124,13 +124,11 @@ class SNode(Node):
         self.constants["leak"] = self.leak
         self.constants["zeta"] = self.zeta
 
-        self.compartment_names = ["dz_bu", "dz_td", "z", "phi(z)", "S(z)"]
+        self.compartment_names = ["dz_bu", "dz_td", "z", "phi(z)"]
         self.compartments = {}
         for name in self.compartment_names:
             if "phi(z)" in name:
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name="{}_phi_z".format(self.name))
-            elif "S(z)" in name:
-                self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name="{}_S_z".format(self.name))
             else:
                 self.compartments[name] = tf.Variable(tf.zeros([batch_size,dim]), name="{}_{}".format(self.name, name))
 
@@ -180,7 +178,6 @@ class SNode(Node):
                 dz_bu = self.compartments["dz_bu"]
                 dz_td = self.compartments["dz_td"]
                 z = self.compartments["z"]
-                dz = None
                 dz = dz_td + dz_bu
 
                 '''
@@ -216,13 +213,6 @@ class SNode(Node):
                 self.compartments["phi(z)"].assign(phi_z)
             else:
                 self.compartments["phi(z)"] = (phi_z)
-
-        if injection_table.get("S(z)") is None: # apply stochastic/sampling function
-            S_z = self.sfx(self.compartments["phi(z)"])
-            if self.do_inplace == True:
-                self.compartments["S(z)"].assign(S_z)
-            else:
-                self.compartments["S(z)"] = (S_z)
 
 
         ########################################################################

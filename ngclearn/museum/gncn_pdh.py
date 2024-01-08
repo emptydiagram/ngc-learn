@@ -307,14 +307,19 @@ class GNCN_PDH:
                 node_j = cycle_i[j]
                 node_inj_table = self.ngc_model.injection_table.get(node_j.name)
 
-                print(f"{node_j.name} | {node_inj_table}")
-
                 if node_inj_table is None:
                     node_inj_table = {}
-                if batch_size > 0:
-                    node_j.set_cold_state(node_inj_table, batch_size=batch_size)
 
-                node_j.step(node_inj_table, skip_core_calc=True)
+                for comp_name in node_j.compartment_names:
+                    if node_inj_table.get(comp_name) is None:
+                        comp_value = node_j.compartments.get(comp_name)
+                        # print(f"settle2.init, {node_j.name} : {comp_name}, {comp_value.shape}")
+                        if comp_value.shape[0] > 1:
+                            zero_state = tf.zeros([batch_size, comp_value.shape[1]])
+                        else:
+                            zero_state = tf.zeros([1, comp_value.shape[1]])
+                        node_j.compartments[comp_name] = (zero_state + 0)
+
 
 
         # main iterative loop

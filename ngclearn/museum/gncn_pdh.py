@@ -91,111 +91,22 @@ class GNCN_PDH:
         self.leak = leak
         self.wght_sd = wght_sd
 
-        integrate_cfg = {"integrate_type" : "euler"}
-        precis_cfg = ("uniform", 0.01)
-        constraint_cfg = {"clip_type":"norm_clip","clip_mag":1.0,"clip_axis":0}
-
-        z3 = SNode(name="z3", dim=z_top_dim, beta=beta, leak=leak, act_fx=act_fx,
-                   integrate_kernel=integrate_cfg)
-        z2 = SNode(name="z2", dim=z_dim, beta=beta, leak=leak, act_fx=act_fx,
-                   integrate_kernel=integrate_cfg)
-        z1 = SNode(name="z1", dim=z_dim, beta=beta, leak=leak, act_fx=act_fx,
-                   integrate_kernel=integrate_cfg)
-        z0 = SNode(name="z0", dim=x_dim, beta=beta, integrate_kernel=integrate_cfg, leak=0.0)
-
-        mu2 = SNode(name="mu2", dim=z_dim, act_fx="relu", zeta=0.0)
-        mu1 = SNode(name="mu1", dim=z_dim, act_fx="relu", zeta=0.0)
-        mu0 = SNode(name="mu0", dim=x_dim, act_fx=out_fx, zeta=0.0)
-
-        e2 = ENode(name="e2", dim=z_dim)
-        e1 = ENode(name="e1", dim=z_dim)
-        e0 = ENode(name="e0", dim=x_dim)
-
-
-        # create cable wiring scheme relating nodes to one another
-        init_kernels = {"A_init" : ("gaussian",wght_sd)}
-        dcable_cfg = {"type": "dense", "init_kernels" : init_kernels, "seed" : seed}
-        ecable_cfg = {"type": "dense", "init_kernels" : init_kernels, "seed" : seed}
-
-
-        z3_mu2 = z3.wire_to(mu2, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-                            short_name="W3")
-        z2_mu1 = z2.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-                            short_name="W2")
-        z1_mu0 = z1.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-                            short_name="W1")
-        # z3_mu1 = z3.wire_to(mu1, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-        #                     short_name="S3")
-        # z2_mu0 = z2.wire_to(mu0, src_comp="phi(z)", dest_comp="dz_td", cable_kernel=dcable_cfg,
-        #                     short_name="S2")
-
-        z3_mu2.set_constraint(constraint_cfg)
-        z2_mu1.set_constraint(constraint_cfg)
-        z1_mu0.set_constraint(constraint_cfg)
-        # z3_mu1.set_constraint(constraint_cfg)
-        # z2_mu0.set_constraint(constraint_cfg)
-
-
-        e2_z3 = e2.wire_to(z3, src_comp="phi(z)", dest_comp="dz_bu", cable_kernel=ecable_cfg,
-                           short_name="E3")
-        e1_z2 = e1.wire_to(z2, src_comp="phi(z)", dest_comp="dz_bu", cable_kernel=ecable_cfg,
-                           short_name="E2")
-        e0_z1 = e0.wire_to(z1, src_comp="phi(z)", dest_comp="dz_bu", cable_kernel=ecable_cfg,
-                           short_name="E1")
-        e2_z3.set_constraint(constraint_cfg)
-        e1_z2.set_constraint(constraint_cfg)
-        e0_z1.set_constraint(constraint_cfg)
-
-
-
-
-        # set up update rules and make relevant edges aware of these
-        # z3_mu1.set_update_rule(preact=(z3,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
-        # z2_mu0.set_update_rule(preact=(z2,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
-
-        z3_mu2.set_update_rule(preact=(z3,"phi(z)"), postact=(e2,"phi(z)"), param=["A"])
-        z2_mu1.set_update_rule(preact=(z2,"phi(z)"), postact=(e1,"phi(z)"), param=["A"])
-        z1_mu0.set_update_rule(preact=(z1,"phi(z)"), postact=(e0,"phi(z)"), param=["A"])
-        e_gamma = 1.0
-        e2_z3.set_update_rule(preact=(e2,"phi(z)"), postact=(z3,"phi(z)"), gamma=e_gamma, param=["A"])
-        e1_z2.set_update_rule(preact=(e1,"phi(z)"), postact=(z2,"phi(z)"), gamma=e_gamma, param=["A"])
-        e0_z1.set_update_rule(preact=(e0,"phi(z)"), postact=(z1,"phi(z)"), gamma=e_gamma, param=["A"])
-
-        # Set up graph - execution cycle/order
-        print(" > Constructing NGC graph")
-        ngc_model = NGCGraph(K=K, name="gncn_pdh")
-        ngc_model.set_cycle(nodes=[z3, z2, z1, z0])
-        ngc_model.set_cycle(nodes=[mu2, mu1, mu0])
-        ngc_model.set_cycle(nodes=[e2, e1, e0])
-        print(f"{[th.name for th in ngc_model.theta]}")
-        info = ngc_model.compile(batch_size=batch_size)
-        self.info = parse_simulation_info(info)
-        # ngc_model.apply_constraints()
-        self.ngc_model = ngc_model
-        self.clip_weights()
-
-        # build this NGC model's sampling graph
-        z3_dim = ngc_model.getNode("z3").dim
-        z2_dim = ngc_model.getNode("z2").dim
-        z1_dim = ngc_model.getNode("z1").dim
-        z0_dim = ngc_model.getNode("z0").dim
-        # Set up complementary sampling graph to use in conjunction w/ NGC-graph
-        s3 = FNode(name="s3", dim=z3_dim, act_fx=act_fx)
-        s2 = FNode(name="s2", dim=z2_dim, act_fx=act_fx)
-        s1 = FNode(name="s1", dim=z1_dim, act_fx=act_fx)
-        s0 = FNode(name="s0", dim=z0_dim, act_fx=out_fx)
-        s3_s2 = s3.wire_to(s2, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z3_mu2,"A"))
-        s2_s1 = s2.wire_to(s1, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z2_mu1,"A"))
-        # s3_s1 = s3.wire_to(s1, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z3_mu1,"A"))
-        s1_s0 = s1.wire_to(s0, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z1_mu0,"A"))
-        # s2_s0 = s2.wire_to(s0, src_comp="phi(z)", dest_comp="dz", mirror_path_kernel=(z2_mu0,"A"))
-        sampler = ProjectionGraph()
-        sampler.set_cycle(nodes=[s3, s2, s1, s0])
-        sampler_info = sampler.compile()
-        self.sampler_info = parse_simulation_info(sampler_info)
-        self.ngc_sampler = sampler
-
         self.delta = None
+
+
+        E3 = tf.random.normal((self.z_dim, self.z_top_dim), stddev=self.wght_sd, seed=self.seed)
+        E2 = tf.random.normal((self.z_dim, self.z_dim), stddev=self.wght_sd, seed=self.seed)
+        E1 = tf.random.normal((self.x_dim, self.z_dim), stddev=self.wght_sd, seed=self.seed)
+        W3 = tf.random.normal((self.z_top_dim, self.z_dim), stddev=self.wght_sd, seed=self.seed)
+        W2 = tf.random.normal((self.z_dim, self.z_dim), stddev=self.wght_sd, seed=self.seed)
+        W1 = tf.random.normal((self.z_dim, self.x_dim), stddev=self.wght_sd, seed=self.seed)
+        self.E3 = tf.Variable(E3)
+        self.E2 = tf.Variable(E2)
+        self.E1 = tf.Variable(E1)
+        self.W3 = tf.Variable(W3)
+        self.W2 = tf.Variable(W2)
+        self.W1 = tf.Variable(W1)
+        self.clip_weights()
 
     def project(self, z_sample):
         """
@@ -257,11 +168,9 @@ class GNCN_PDH:
         batch_size = x.shape[0]
 
         # clamp
-        # z0_node.compartments["z"] = x
         z0_z = x
 
         # Initialize the values of every non-clamped node
-
         z3_z = tf.zeros([batch_size, self.z_top_dim])
         z2_z = tf.zeros([batch_size, self.z_dim])
         z1_z = tf.zeros([batch_size, self.z_dim])
@@ -271,51 +180,28 @@ class GNCN_PDH:
         e0 = tf.zeros([batch_size, self.x_dim])
 
         # main iterative loop
-        delta = None
-
-        E3_cable = self.ngc_model.cables['e2-to-z3_dense']
-        E2_cable = self.ngc_model.cables['e1-to-z2_dense']
-        E1_cable = self.ngc_model.cables['e0-to-z1_dense']
-
-        W3_cable = self.ngc_model.cables['z3-to-mu2_dense']
-        W2_cable = self.ngc_model.cables['z2-to-mu1_dense']
-        W1_cable = self.ngc_model.cables['z1-to-mu0_dense']
-
-        E3 = E3_cable.params["A"]
-        E2 = E2_cable.params["A"]
-        E1 = E1_cable.params["A"]
-        W3 = W3_cable.params["A"]
-        W2 = W2_cable.params["A"]
-        W1 = W1_cable.params["A"]
-
         for k in range(self.K):
             '''
             dz = dz_td + dz_bu - z * node.leak
             z = z * node.zeta + dz * node.beta
             '''
-
-            z3_z = z3_z + self.beta * (- self.leak * z3_z + e2 @ E3)
-            z2_z = z2_z + self.beta * (- self.leak * z2_z + e1 @ E2 - e2)
-            z1_z = z1_z + self.beta * (- self.leak * z1_z + e0 @ E1 - e1)
-
+            z3_z = z3_z + self.beta * (- self.leak * z3_z + e2 @ self.E3)
+            z2_z = z2_z + self.beta * (- self.leak * z2_z + e1 @ self.E2 - e2)
+            z1_z = z1_z + self.beta * (- self.leak * z1_z + e0 @ self.E1 - e1)
             z3_out = tf.nn.relu(z3_z)
             z2_out = tf.nn.relu(z2_z)
             z1_out = tf.nn.relu(z1_z)
             z0_out = z0_z
 
             # predictions
-
-            mu2_z = z3_out @ W3
-            mu1_z = z2_out @ W2
-            mu0_z = z1_out @ W1
-
+            mu2_z = z3_out @ self.W3
+            mu1_z = z2_out @ self.W2
+            mu0_z = z1_out @ self.W1
             mu2 = tf.nn.relu(mu2_z)
             mu1 = tf.nn.relu(mu1_z)
             mu0 = tf.math.sigmoid(mu0_z)
 
-
             # calculate error nodes
-
             # NOTE: paper says it should below, but this doesnt work
             # e2 = z2_z - mu2
             # e1 = z1_z - mu1
@@ -340,13 +226,14 @@ class GNCN_PDH:
         deltas = []
         # ['A_e2-to-z3_dense:0', 'A_e1-to-z2_dense:0', 'A_e0-to-z1_dense:0', 'A_z3-to-mu2_dense:0', 'A_z2-to-mu1_dense:0', 'A_z1-to-mu0_dense:0']
 
-        avg_factor = 1.0 / self.batch_size
-        deltas.append(-avg_factor * tf.matmul(e2, z3_out, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(e1, z2_out, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(e0, z1_out, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(z3_out, e2, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(z2_out, e1, transpose_a=True))
-        deltas.append(-avg_factor * tf.matmul(z1_out, e0, transpose_a=True))
+        if calc_update == True:
+            avg_factor = 1.0 / self.batch_size
+            deltas.append(-avg_factor * tf.matmul(e2, z3_out, transpose_a=True))
+            deltas.append(-avg_factor * tf.matmul(e1, z2_out, transpose_a=True))
+            deltas.append(-avg_factor * tf.matmul(e0, z1_out, transpose_a=True))
+            deltas.append(-avg_factor * tf.matmul(z3_out, e2, transpose_a=True))
+            deltas.append(-avg_factor * tf.matmul(z2_out, e1, transpose_a=True))
+            deltas.append(-avg_factor * tf.matmul(z1_out, e0, transpose_a=True))
 
         return x_hat, deltas
 
@@ -354,10 +241,8 @@ class GNCN_PDH:
 
 
     def clip_weights(self):
-        for (name, cable) in self.ngc_model.cables.items():
-            if isinstance(cable, DCable):
-                A = cable.params.get("A")
-                A.assign(tf.clip_by_norm(A, 1.0, axes=[0]))
+        for param in self.get_parameters():
+            param.assign(tf.clip_by_norm(param, 1.0, axes=[0]))
 
     def calc_updates(self, avg_update=True):
         """
@@ -376,21 +261,13 @@ class GNCN_PDH:
         return delta
 
     def get_parameters(self):
-        E3_cable = self.ngc_model.cables['e2-to-z3_dense']
-        E2_cable = self.ngc_model.cables['e1-to-z2_dense']
-        E1_cable = self.ngc_model.cables['e0-to-z1_dense']
-
-        W3_cable = self.ngc_model.cables['z3-to-mu2_dense']
-        W2_cable = self.ngc_model.cables['z2-to-mu1_dense']
-        W1_cable = self.ngc_model.cables['z1-to-mu0_dense']
-
         return [
-            E3_cable.params["A"],
-            E2_cable.params["A"],
-            E1_cable.params["A"],
-            W3_cable.params["A"],
-            W2_cable.params["A"],
-            W1_cable.params["A"]
+            self.E3,
+            self.E2,
+            self.E1,
+            self.W3,
+            self.W2,
+            self.W1
         ]
 
     def get_total_discrepancy(self):
@@ -402,8 +279,6 @@ class GNCN_PDH:
 
     def clear(self):
         """Clears the states/values of the stateful nodes in this NGC system"""
-        self.ngc_model.clear()
-        self.ngc_sampler.clear()
         self.delta = None
 
     def print_norms(self):

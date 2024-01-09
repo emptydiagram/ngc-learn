@@ -109,7 +109,7 @@ def eval_model(agent, dataset, calc_ToD, verbose=False):
     for batch in dataset:
         x_name, x = batch[0]
         N += x.shape[0]
-        x_hat = agent.settle(x, calc_update=False) # conduct iterative inference
+        x_hat, _ = agent.settle2(x, calc_update=False) # conduct iterative inference
 
         # update tracked fixed-point losses
         Lx = tf.reduce_sum( metric.bce(x_hat, x) ) + Lx
@@ -149,18 +149,18 @@ with tf.device(gpu_tag):
 
         Lx_series = []
         ToD_series = []
-        # vLx_series = []
-        # vToD_series = []
+        vLx_series = []
+        vToD_series = []
 
         ############################################################################
         # create a  training loop
-        # ToD, Lx = eval_model(agent, train_set, calc_ToD, verbose=True)
-        # vToD, vLx = eval_model(agent, dev_set, calc_ToD, verbose=True)
-        # print("{} | ToD = {}  Lx = {} ; vToD = {}  vLx = {}".format(-1, ToD, Lx, vToD, vLx))
-        # Lx_series.append(Lx)
-        # ToD_series.append(ToD)
-        # vLx_series.append(vLx)
-        # vToD_series.append(vToD)
+        ToD, Lx = eval_model(agent, train_set, calc_ToD, verbose=True)
+        vToD, vLx = eval_model(agent, dev_set, calc_ToD, verbose=True)
+        print("{} | ToD = {}  Lx = {} ; vToD = {}  vLx = {}".format(-1, ToD, Lx, vToD, vLx))
+        Lx_series.append(Lx)
+        ToD_series.append(ToD)
+        vLx_series.append(vLx)
+        vToD_series.append(vToD)
 
         PATIENCE = 10 #5
         impatience = 0
@@ -207,16 +207,15 @@ with tf.device(gpu_tag):
             ToD = ToD / (n_s * 1.0)
             Lx = Lx / (n_s * 1.0)
             # evaluate generalization ability on dev set
-            # vToD, vLx = eval_model(agent, dev_set, calc_ToD)
-            vToD, vLx = None, None
+            vToD, vLx = eval_model(agent, dev_set, calc_ToD)
             print("-------------------------------------------------")
             print("{} | ToD = {}  Lx = {} ; vToD = {}  vLx = {}".format(
                   i, ToD, Lx, vToD, vLx)
                   )
             Lx_series.append(Lx)
             ToD_series.append(ToD)
-            # vLx_series.append(vLx)
-            # vToD_series.append(vToD)
+            vLx_series.append(vLx)
+            vToD_series.append(vToD)
 
             # if i % save_marker == 0:
             #     np.save("{}Lx{}".format(out_dir, trial), np.array(Lx_series))
